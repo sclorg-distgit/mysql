@@ -1,0 +1,21 @@
+diff -up mysql-5.6.22/scripts/mysql_config.sh.noclientlib mysql-5.6.22/scripts/mysql_config.sh
+--- mysql-5.6.22/scripts/mysql_config.sh.noclientlib	2015-01-26 18:14:00.911435126 +0100
++++ mysql-5.6.22/scripts/mysql_config.sh	2015-01-26 18:14:26.094505426 +0100
+@@ -156,8 +156,6 @@ Options:
+         --cflags         [$cflags]
+         --cxxflags       [$cxxflags]
+         --include        [$include]
+-        --libs           [$libs]
+-        --libs_r         [$libs_r]
+         --plugindir      [$plugindir]
+         --socket         [$socket]
+         --port           [$port]
+@@ -178,8 +176,6 @@ while test $# -gt 0; do
+         --cflags)  echo "$cflags" ;;
+         --cxxflags)echo "$cxxflags";;
+         --include) echo "$include" ;;
+-        --libs)    echo "$libs" ;;
+-        --libs_r)  echo "$libs_r" ;;
+         --plugindir) echo "$plugindir" ;;
+         --socket)  echo "$socket" ;;
+         --port)    echo "$port" ;;

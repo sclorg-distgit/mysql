@@ -1,0 +1,102 @@
+diff --git a/storage/perfschema/pfs_account.cc b/storage/perfschema/pfs_account.cc
+index 405364a..ed3bef1 100644
+--- a/storage/perfschema/pfs_account.cc
++++ b/storage/perfschema/pfs_account.cc
+@@ -201,6 +201,13 @@ static void set_account_key(PFS_account_key *key,
+   key->m_key_length= ptr - &key->m_hash_key[0];
+ }
+ 
++#if defined(__aarch64__)
++PFS_account *
++find_or_create_account(PFS_thread *thread,
++		       const char *username, uint username_length,
++		       const char *hostname, uint hostname_length) __attribute__((optimize (1)));
++#endif
++
+ PFS_account *
+ find_or_create_account(PFS_thread *thread,
+                          const char *username, uint username_length,
+diff --git a/storage/perfschema/pfs_digest.cc b/storage/perfschema/pfs_digest.cc
+index addfac1..68e76cd 100644
+--- a/storage/perfschema/pfs_digest.cc
++++ b/storage/perfschema/pfs_digest.cc
+@@ -168,6 +168,14 @@ static LF_PINS* get_digest_hash_pins(PFS_thread *thread)
+   return thread->m_digest_hash_pins;
+ }
+ 
++#if defined(__aarch64__)
++PFS_statement_stat*
++find_or_create_digest(PFS_thread *thread,
++                      PSI_digest_storage *digest_storage,
++                      const char *schema_name,
++                      uint schema_name_length) __attribute__((optimize (1)));
++#endif
++
+ PFS_statement_stat*
+ find_or_create_digest(PFS_thread *thread,
+                       const sql_digest_storage *digest_storage,
+diff --git a/storage/perfschema/pfs_host.cc b/storage/perfschema/pfs_host.cc
+index 0c6f5cf..fc624d7 100644
+--- a/storage/perfschema/pfs_host.cc
++++ b/storage/perfschema/pfs_host.cc
+@@ -193,6 +193,11 @@ static void set_host_key(PFS_host_key *key,
+   key->m_key_length= ptr - &key->m_hash_key[0];
+ }
+ 
++#if defined(__aarch64__)
++PFS_host *find_or_create_host(PFS_thread *thread,
++                              const char *hostname, uint hostname_length) __attribute__((optimize (1)));
++#endif
++
+ PFS_host *find_or_create_host(PFS_thread *thread,
+                               const char *hostname, uint hostname_length)
+ {
+diff --git a/storage/perfschema/pfs_instr.cc b/storage/perfschema/pfs_instr.cc
+index cf0e6fd..8682e04 100644
+--- a/storage/perfschema/pfs_instr.cc
++++ b/storage/perfschema/pfs_instr.cc
+@@ -1149,6 +1149,11 @@ LF_PINS* get_filename_hash_pins(PFS_thread *thread)
+   @param create                       create a file instance if none found
+   @return a file instance, or NULL
+ */
++#if defined(__aarch64__)
++PFS_file*
++find_or_create_file(PFS_thread *thread, PFS_file_class *klass,
++                    const char *filename, uint len, bool create) __attribute__((optimize (1)));
++#endif
+ PFS_file*
+ find_or_create_file(PFS_thread *thread, PFS_file_class *klass,
+                     const char *filename, uint len, bool create)
+diff --git a/storage/perfschema/pfs_instr_class.cc b/storage/perfschema/pfs_instr_class.cc
+index 4d73396..139a2db 100644
+--- a/storage/perfschema/pfs_instr_class.cc
++++ b/storage/perfschema/pfs_instr_class.cc
+@@ -1233,6 +1233,11 @@ static int compare_keys(PFS_table_share *pfs, const TABLE_SHARE *share)
+   @param share                        table share
+   @return a table share, or NULL
+ */
++#if defined(__aarch64__)
++PFS_table_share* find_or_create_table_share(PFS_thread *thread,
++                                            bool temporary,
++                                            const TABLE_SHARE *share) __attribute__((optimize (1)));
++#endif
+ PFS_table_share* find_or_create_table_share(PFS_thread *thread,
+                                             bool temporary,
+                                             const TABLE_SHARE *share)
+diff --git a/storage/perfschema/pfs_user.cc b/storage/perfschema/pfs_user.cc
+index 9f53702..2f418a7 100644
+--- a/storage/perfschema/pfs_user.cc
++++ b/storage/perfschema/pfs_user.cc
+@@ -193,6 +193,12 @@ static void set_user_key(PFS_user_key *key,
+   key->m_key_length= ptr - &key->m_hash_key[0];
+ }
+ 
++#if defined(__aarch64__)
++PFS_user *
++find_or_create_user(PFS_thread *thread,
++                    const char *username, uint username_length)  __attribute__((optimize (1)));
++#endif
++
+ PFS_user *
+ find_or_create_user(PFS_thread *thread,
+                     const char *username, uint username_length)
