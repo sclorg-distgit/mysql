@@ -1,0 +1,18 @@
+Since we support more versions of the daemon running with the same socket file,
+we can't blindly remove the socket file. MariaDB doesn't do it, so let's don't
+do it here as well.
+
+RHBZ#1045401
+
+diff -up mysql-5.5.36/scripts/mysqld_safe.sh.socket-removal mysql-5.5.36/scripts/mysqld_safe.sh
+--- mysql-5.5.36/scripts/mysqld_safe.sh.socket-removal	2014-02-12 20:53:35.655312819 +0100
++++ mysql-5.5.36/scripts/mysqld_safe.sh	2014-02-12 20:53:45.014310456 +0100
+@@ -779,7 +779,7 @@ have_sleep=1
+ 
+ while true
+ do
+-  rm -f $safe_mysql_unix_port "$pid_file"	# Some extra safety
++  rm -f "$pid_file"	# Some extra safety
+ 
+   start_time=`date +%M%S`
+ 
