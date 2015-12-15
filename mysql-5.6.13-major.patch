@@ -1,0 +1,11 @@
+--- mysql-5.6.13/cmake/mysql_version.cmake.orig	2013-08-15 13:48:26.177017731 +0200
++++ mysql-5.6.13/cmake/mysql_version.cmake	2013-08-15 13:49:35.478949928 +0200
+@@ -17,7 +17,7 @@
+ # Global constants, only to be changed between major releases.
+ #
+ 
+-SET(SHARED_LIB_MAJOR_VERSION "18")
++SET(SHARED_LIB_MAJOR_VERSION "1018")
+ SET(SHARED_LIB_MINOR_VERSION "1")
+ SET(PROTOCOL_VERSION "10")
+ SET(DOT_FRM_VERSION "6")

@@ -1,0 +1,78 @@
+In MySQL 5.5, the InnoDB Plugin is the default version and it's compiled in.
+In this case, the plugin cannot be uninstalled and we get error when trying
+to do so:
+
+mysql> uninstall plugin innodb;
+ERROR 1305 (42000): PLUGIN innodb does not exist
+
+But the error message is misleading. The plugin does exist, it just cannot
+be installed because it's not dynamically loaded.
+
+MySQL bug report: http://bugs.mysql.com/bug.php?id=51771
+MariaDB bug report: https://mariadb.atlassian.net/browse/MDEV-4573
+MariaDB fix: http://bazaar.launchpad.net/~maria-captains/maria/5.5/revision/3802
+
+diff --git a/include/mysql.h b/include/mysql.h
+index 38b54de..0b13e92 100644
+--- a/include/mysql.h
++++ b/include/mysql.h
+@@ -134,6 +134,7 @@ typedef unsigned long long my_ulonglong;
+ 
+ /* backward compatibility define - to be removed eventually */
+ #define ER_WARN_DATA_TRUNCATED WARN_DATA_TRUNCATED
++#define WARN_PLUGIN_DELETE_BUILTIN ER_PLUGIN_DELETE_BUILTIN
+ 
+ typedef struct st_mysql_rows {
+   struct st_mysql_rows *next;		/* list of rows */
+diff --git a/mysql-test/r/plugin.result b/mysql-test/r/plugin.result
+index a3d7437..8ea475d 100644
+--- a/mysql-test/r/plugin.result
++++ b/mysql-test/r/plugin.result
+@@ -232,3 +232,5 @@ DROP PROCEDURE p_install;
+ SET DEBUG_SYNC='RESET';
+ disconnect con1;
+ disconnect con2;
++UNINSTALL PLUGIN MyISAM;
++ERROR HY000: Built-in plugins cannot be deleted
+diff --git a/mysql-test/t/plugin.test b/mysql-test/t/plugin.test
+index de68d36..bf9fb7d 100644
+--- a/mysql-test/t/plugin.test
++++ b/mysql-test/t/plugin.test
+@@ -277,3 +277,9 @@ disconnect con1;
+ disconnect con2;
+ 
+ --disable_connect_log
++
++#
++# MDEV-4573 UNINSTALL PLUGIN misleading error message for non-dynamic plugins
++#
++--error ER_PLUGIN_DELETE_BUILTIN
++UNINSTALL PLUGIN MyISAM;
+diff --git a/sql/share/errmsg-utf8.txt b/sql/share/errmsg-utf8.txt
+index 15acc66..35e2c3c 100644
+--- a/sql/share/errmsg-utf8.txt
++++ b/sql/share/errmsg-utf8.txt
+@@ -6235,7 +6235,7 @@ WARN_NO_MASTER_INFO
+ WARN_OPTION_IGNORED
+   eng "<%-.64s> option ignored"
+   ger "Option <%-.64s> ignoriert"
+-WARN_PLUGIN_DELETE_BUILTIN
++ER_PLUGIN_DELETE_BUILTIN
+   eng "Built-in plugins cannot be deleted"
+   ger "Eingebaute Plugins können nicht gelöscht werden"
+ WARN_PLUGIN_BUSY
+diff --git a/sql/sql_plugin.cc b/sql/sql_plugin.cc
+index f134e4f..7e34432 100644
+--- a/sql/sql_plugin.cc
++++ b/sql/sql_plugin.cc
+@@ -2008,9 +2008,7 @@ bool mysql_uninstall_plugin(THD *thd, const LEX_STRING *name)
+   }
+   if (!plugin->plugin_dl)
+   {
+-    push_warning(thd, Sql_condition::WARN_LEVEL_WARN,
+-                 WARN_PLUGIN_DELETE_BUILTIN, ER(WARN_PLUGIN_DELETE_BUILTIN));
+-    my_error(ER_SP_DOES_NOT_EXIST, MYF(0), "PLUGIN", name->str);
++    my_error(ER_PLUGIN_DELETE_BUILTIN, MYF(0));
+     goto err;
+   }
+   if (plugin->load_option == PLUGIN_FORCE_PLUS_PERMANENT)
