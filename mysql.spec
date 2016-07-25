@@ -107,7 +107,7 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.6.26
+Version:          5.6.30
 Release:          1%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
@@ -1058,6 +1058,10 @@ fi
 %endif
 
 %changelog
+* Tue Apr 26 2016 Jakub Dorňák <jdornak@redhat.com> - 5.6.30-1
+- Update to MySQL 5.6.30
+  Resolves: #1329671
+
 * Wed Jul 29 2015 Jakub Dorňák <jdornak@redhat.com> - 5.6.26-1
 - Update to MySQL 5.6.26
   Related: #1247025
