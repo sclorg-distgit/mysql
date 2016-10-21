@@ -114,7 +114,7 @@
 
 Name:             %{?scl_prefix}mysql
 Version:          5.7.15
-Release:          1%{?with_debug:.debug}%{?dist}
+Release:          2%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
 URL:              http://www.mysql.com
@@ -407,7 +407,7 @@ Requires:         perl(File::Temp)
 Requires:         perl(Data::Dumper)
 Requires:         perl(Getopt::Long)
 Requires:         perl(IPC::Open3)
-BuildRequires:    perl(JSON)
+Requires:         perl(JSON)
 Requires:         perl(Socket)
 Requires:         perl(Sys::Hostname)
 Requires:         perl(Test::More)
@@ -1088,6 +1088,10 @@ fi
 %endif
 
 %changelog
+* Sat Sep 17 2016 Honza Horak <hhorak@redhat.com> - 5.7.15-2
+- We need actually runtime-dep for perl(JSON) in tests
+  Related: #1376457
+
 * Sat Sep 17 2016 Honza Horak <hhorak@redhat.com> - 5.7.15-1
 - Update to MySQL 5.7.15, for various fixes described at
   https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-15.html
