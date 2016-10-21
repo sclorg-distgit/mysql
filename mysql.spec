@@ -12,7 +12,7 @@
 %{!?runselftest:%global runselftest 1}
 
 # Set this to 1 to see which tests fail
-%global check_testsuite 1
+%global check_testsuite 0
 
 # set to 1 to enable
 %global with_shared_lib_major_hack 0
@@ -113,8 +113,8 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.7.13
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          5.7.15
+Release:          1%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
 URL:              http://www.mysql.com
@@ -156,10 +156,6 @@ Patch11:          %{pkgnamepatch}-noclientlib.patch
 # Patches specific for this mysql package
 Patch51:          %{pkgnamepatch}-chain-certs.patch
 Patch52:          %{pkgnamepatch}-sharedir.patch
-Patch53:          %{pkgnamepatch}-5.7.13-pfs-oom-unittest.patch
-Patch54:          %{pkgnamepatch}-5.7.13-fpu.patch
-Patch55:          %{pkgnamepatch}-5.7.13-gcc6.patch
-Patch56:          %{pkgnamepatch}-5.7.13-libedit.patch
 Patch57:          %{pkgnamepatch}-files-path.patch
 Patch70:          %{pkgnamepatch}-5.7.9-major.patch
 
@@ -201,6 +197,7 @@ BuildRequires:    perl(File::Temp)
 BuildRequires:    perl(Data::Dumper)
 BuildRequires:    perl(Getopt::Long)
 BuildRequires:    perl(IPC::Open3)
+BuildRequires:    perl(JSON)
 BuildRequires:    perl(Memoize)
 BuildRequires:    perl(Socket)
 BuildRequires:    perl(Sys::Hostname)
@@ -410,6 +407,7 @@ Requires:         perl(File::Temp)
 Requires:         perl(Data::Dumper)
 Requires:         perl(Getopt::Long)
 Requires:         perl(IPC::Open3)
+BuildRequires:    perl(JSON)
 Requires:         perl(Socket)
 Requires:         perl(Sys::Hostname)
 Requires:         perl(Test::More)
@@ -439,10 +437,6 @@ the MySQL sources.
 %patch11 -p1
 %patch51 -p1
 %patch52 -p1
-%patch53 -p1
-%patch54 -p1
-%patch55 -p1
-%patch56 -p1
 %patch57 -p1
 %if %{with_shared_lib_major_hack}
 %patch70 -p1
@@ -469,10 +463,11 @@ add_test () {
 touch %{skiplist}
 
 # unstable on all archs
+add_test main.xa_prepared_binlog_off          : unstable test
 add_test binlog.binlog_xa_prepared_disconnect : unstable test
 add_test innodb.table_encrypt_kill            : unstable test
 
-# these tests fail in 5.7.13 on arm32
+# these tests fail in 5.7.15 on arm32
 %ifarch %arm
 # GIS related issue
 add_test innodb_gis.1     : arm32 gis issue
@@ -490,21 +485,16 @@ add_test gis.spatial_testing_functions_within   : arm32 gis issue
 # FTS
 add_test innodb_fts.opt : arm32 FTS issue
 # Missing hw counters
-add_test perfschema.func_file_io  : missing hw on arm32
-add_test perfschema.setup_objects : missing hw on arm32
+add_test perfschema.func_mutex          : missing hw on arm32
+add_test perfschema.func_file_io        : missing hw on arm32
+add_test perfschema.mdl_func            : missing hw on arm32
+add_test perfschema.setup_objects       : missing hw on arm32
+add_test perfschema.global_read_lock    : missing hw on arm32
 %endif
 
-# these tests fail in 5.7.13 on aarch64
-%ifarch aarch64
+# this test fail in 5.7.14 on ppc64* and aarch64
+%ifarch ppc64 ppc64le aarch64
 add_test innodb.innodb            : missing correct value
-add_test innodb_fts.large_records : innodb assert
-add_test main.ctype_big5          : innodb assert
-add_test main.ctype_gbk           : innodb assert
-add_test main.ctype_utf8mb4_uca   : innodb assert
-add_test main.insert              : innodb assert
-add_test main.sp_trans            : innodb assert
-add_test sysschema.pr_diagnostics : innodb assert
-add_test sys_vars.log_slow_admin_statements_func : innodb assert
 %endif
 
 # these tests fail in 5.7.13 on ppc64*
@@ -799,7 +789,7 @@ cp ../../mysql-test/%{skiplist} .
 export MTR_BUILD_THREAD=%{__isa_bits}
 ./mtr \
   --mem --parallel=auto --force --retry=0 \
-  --mysqld=--binlog-format=mixed \
+  --mysqld=--binlog-format=mixed --skip-rpl \
   --suite-timeout=720 --testcase-timeout=30 \
   --clean-vardir \
 %if %{check_testsuite}
@@ -1098,6 +1088,15 @@ fi
 %endif
 
 %changelog
+* Sat Sep 17 2016 Honza Horak <hhorak@redhat.com> - 5.7.15-1
+- Update to MySQL 5.7.15, for various fixes described at
+  https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-15.html
+  Resolves: #1376457
+- Adjust list of problematic tests from Fedora
+
+* Mon Jul 18 2016 Honza Horak <hhorak@redhat.com> - 5.7.13-3
+- Rebuild for new mecab lib
+
 * Fri Jul 15 2016 Honza Horak <hhorak@redhat.com> - 5.7.13-2
 - Convert to SCL package
 
