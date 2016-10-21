@@ -1,0 +1,12 @@
+diff -up mysql-5.7.13/cmake/install_layout.cmake.mysqlfilesdir mysql-5.7.13/cmake/install_layout.cmake
+--- mysql-5.7.13/cmake/install_layout.cmake.mysqlfilesdir	2016-07-17 13:59:12.663017317 +0200
++++ mysql-5.7.13/cmake/install_layout.cmake	2016-07-17 14:03:13.518681553 +0200
+@@ -143,7 +143,7 @@ ELSEIF(INSTALL_LAYOUT MATCHES "RPM" OR
+        INSTALL_LAYOUT MATCHES "SLES" OR
+        INSTALL_LAYOUT MATCHES "SVR4" OR
+        INSTALL_LAYOUT MATCHES "DEB")
+-  SET(secure_file_priv_path "/var/lib/mysql-files")
++  SET(secure_file_priv_path "${LOCALSTATEDIR}/mysql-files")
+   SET(secure_file_priv_embedded_path "NULL")
+ ELSE()
+   SET(secure_file_priv_path "${default_prefix}/mysql-files")

@@ -1,0 +1,81 @@
+diff -up mysql-5.7.13/scripts/mysqld_safe.sh.p90 mysql-5.7.13/scripts/mysqld_safe.sh
+--- mysql-5.7.13/scripts/mysqld_safe.sh.p90	2016-05-25 07:50:36.000000000 +0200
++++ mysql-5.7.13/scripts/mysqld_safe.sh	2016-07-16 21:52:26.709781108 +0200
+@@ -11,6 +11,12 @@
+ # mysql.server works by first doing a cd to the base directory and from there
+ # executing mysqld_safe
+ 
++# we want start daemon only inside "scl enable" invocation
++if ! scl_enabled @SCL_NAME@ ; then
++    echo "Use \"scl enable @SCL_NAME@ 'service ...'\" invocation"
++    exit 1
++fi
++
+ # Initialize script globals
+ KILL_MYSQLD=1;
+ MYSQLD=
+diff -up mysql-5.7.13/scripts/mysql.init.in.p90 mysql-5.7.13/scripts/mysql.init.in
+--- mysql-5.7.13/scripts/mysql.init.in.p90	2016-07-16 21:52:26.708781123 +0200
++++ mysql-5.7.13/scripts/mysql.init.in	2016-07-16 21:52:26.709781108 +0200
+@@ -154,6 +154,18 @@ condrestart(){
+     [ -e $lockfile ] && restart || :
+ }
+ 
++# We have to re-enable SCL environment, because /sbin/service
++# clears almost all environment variables.
++# Since X_SCLS is cleared as well, we lose information about other
++# collections enabled.
++source @SCL_SCRIPTS@/service-environment
++source scl_source enable $@SCL_NAME_UPPER@_SCLS_ENABLED
++
++# we want start daemon only inside "scl enable" invocation
++if ! scl_enabled @SCL_NAME@ ; then
++    echo "Collection @SCL_NAME@ has to be listed in @SCL_SCRIPTS@/service-environment"
++    exit 1
++fi
+ 
+ # See how we were called.
+ case "$1" in
+diff -up mysql-5.7.13/scripts/mysql.service.in.p90 mysql-5.7.13/scripts/mysql.service.in
+--- mysql-5.7.13/scripts/mysql.service.in.p90	2016-07-16 21:52:26.709781108 +0200
++++ mysql-5.7.13/scripts/mysql.service.in	2016-07-16 21:54:39.422173487 +0200
+@@ -36,13 +36,19 @@ PIDFile=@PID_FILE_DIR@/@DAEMON_NO_PREFIX
+ # Execute pre and post scripts as root
+ PermissionsStartOnly=true
+ 
+-ExecStartPre=@libexecdir@/mysql-check-socket
+-ExecStartPre=@libexecdir@/mysql-prepare-db-dir %n
++# Load collections set to enabled for this service
++EnvironmentFile=@SCL_SCRIPTS@/service-environment
++
++# We want to start server only inside "scl enable" invocation
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- /usr/bin/scl_enabled @SCL_NAME@
++
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-socket
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-prepare-db-dir %n
+ # Note: we set --basedir to prevent probes that might trigger SELinux alarms,
+ # per bug #547485
+-ExecStart=@libexecdir@/mysqld --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
+-ExecStartPost=@libexecdir@/mysql-check-upgrade
+-ExecStopPost=@libexecdir@/mysql-wait-stop
++ExecStart=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysqld --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
++ExecStartPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-upgrade
++ExecStopPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-wait-stop
+ 
+ # Give a reasonable amount of time for the server to start up/shut down
+ TimeoutSec=300
+diff -up mysql-5.7.13/support-files/mysql-log-rotate.sh.p90 mysql-5.7.13/support-files/mysql-log-rotate.sh
+--- mysql-5.7.13/support-files/mysql-log-rotate.sh.p90	2016-07-16 21:52:19.240878007 +0200
++++ mysql-5.7.13/support-files/mysql-log-rotate.sh	2016-07-16 21:52:26.710781093 +0200
+@@ -30,9 +30,9 @@
+ #    postrotate
+ #	# just if mysqld is really running
+ #	if test -x @bindir@/mysqladmin && \
+-#	   @bindir@/mysqladmin ping &>/dev/null
++#	   /usr/bin/scl enable @SCL_NAME@ -- @bindir@/mysqladmin ping &>/dev/null
+ #	then
+-#	   @bindir@/mysqladmin flush-logs
++#	   /usr/bin/scl enable @SCL_NAME@ -- @bindir@/mysqladmin flush-logs
+ #	fi
+ #    endscript
+ #}

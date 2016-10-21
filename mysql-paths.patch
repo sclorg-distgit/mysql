@@ -1,0 +1,156 @@
+Some hard-coded paths make problems when package is built into chroot like
+Software Collections. Removing these hard-coded paths should fix it.
+
+Upstream report: https://mariadb.atlassian.net/browse/MDEV-6485
+
+
+diff -up --recursive mysql-5.7.8.orig/client/mysql_plugin.c mysql-5.7.8/client/mysql_plugin.c
+--- mysql-5.7.8.orig/client/mysql_plugin.c	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/client/mysql_plugin.c	2015-09-23 13:32:57.711495542 +0200
+@@ -94,6 +94,7 @@ static int find_plugin(char *tp_path);
+ static int build_bootstrap_file(char *operation, char *bootstrap);
+ static int dump_bootstrap_file(char *bootstrap_file);
+ static int bootstrap_server(char *server_path, char *bootstrap_file);
++static int find_file_in_path(const char *name, char *to);
+ 
+ 
+ int main(int argc,char *argv[])
+@@ -125,7 +126,7 @@ int main(int argc,char *argv[])
+   */
+   if ((error= process_options(argc, argv, operation)) ||
+       (error= check_access()) ||
+-      (error= find_tool("mysqld" FN_EXEEXT, server_path)) ||
++      (error= find_file_in_path("mysqld" FN_EXEEXT, server_path)) ||
+       (error= find_plugin(tp_path)) ||
+       (error= build_bootstrap_file(operation, bootstrap)))
+     goto exit;
+@@ -331,7 +332,7 @@ static int get_default_values()
+   FILE *file= 0;
+ 
+   memset(tool_path, 0, FN_REFLEN);
+-  if ((error= find_tool("my_print_defaults" FN_EXEEXT, tool_path)))
++  if ((error= find_file_in_path("my_print_defaults" FN_EXEEXT, tool_path)))
+     goto exit;
+   else
+   {
+@@ -1014,6 +1015,55 @@ exit:
+ }
+ 
+ 
++#if defined(__WIN__)
++#define F_OK 0
++#define PATH_SEP ';'
++#define PROGRAM_EXTENSION ".exe"
++#else
++#define PATH_SEP ':'
++#endif
++
++static int find_file_in_path(const char *name, char *to)
++{
++  char *path,*pos,dir[2];
++  const char *ext="";
++
++  if (!(path=getenv("PATH")))
++    goto notfound;
++  dir[0]=FN_LIBCHAR; dir[1]=0;
++#ifdef PROGRAM_EXTENSION
++  if (!fn_ext(name)[0])
++    ext=PROGRAM_EXTENSION;
++#endif
++
++  for (pos=path ; (pos=strchr(pos,PATH_SEP)) ; path= ++pos)
++  {
++    if (path != pos)
++    {
++      strxmov(my_stpnmov(to,path,(uint) (pos-path)),dir,name,ext,NullS);
++      if (!access(to,F_OK))
++      {
++        if (opt_verbose)
++          printf("# Found tool '%s' as '%s'.\n", name, to);
++	return 0;
++      }
++    }
++  }
++#ifdef __WIN__
++  to[0]=FN_CURLIB;
++  strxmov(to+1,dir,name,ext,NullS);
++  if (!access(to,F_OK))			/* Test in current dir */
++  {
++    if (opt_verbose)
++      printf("# Found tool '%s' as '%s'.\n", name, to);
++    return 0;
++  }
++#endif
++notfound:
++  fprintf(stderr, "WARNING: Cannot find %s.\n", name);
++  return 1;				/* File not found */
++}
++
+ /**
+   Locate the tool and form tool path.
+ 
+diff -up --recursive mysql-5.7.8.orig/cmake/install_layout.cmake mysql-5.7.8/cmake/install_layout.cmake
+--- mysql-5.7.8.orig/cmake/install_layout.cmake	2015-07-20 14:25:07.000000000 +0200
++++ mysql-5.7.8/cmake/install_layout.cmake	2015-09-23 13:32:57.711495542 +0200
+@@ -107,7 +107,7 @@ IF(UNIX)
+     " Choose between ${VALID_INSTALL_LAYOUTS}" )
+   ENDIF()
+ 
+-  SET(SYSCONFDIR "${CMAKE_INSTALL_PREFIX}/etc"
++  SET(SYSCONFDIR "/etc"
+     CACHE PATH "config directory (for my.cnf)")
+   MARK_AS_ADVANCED(SYSCONFDIR)
+ ENDIF()
+@@ -321,6 +321,7 @@ SET(INSTALL_SECURE_FILE_PRIV_EMBEDDEDDIR
+ SET(INSTALL_BINDIR_RPM                  "bin")
+ SET(INSTALL_SBINDIR_RPM                 "sbin")
+ SET(INSTALL_SCRIPTDIR_RPM               "bin")
++SET(INSTALL_SYSCONFDIR_RPM              "/etc")
+ #
+ IF(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+   SET(INSTALL_LIBDIR_RPM                "lib64")
+diff -up --recursive mysql-5.7.8.orig/mysys_ssl/my_default.cc mysql-5.7.8/mysys_ssl/my_default.cc
+--- mysql-5.7.8.orig/mysys_ssl/my_default.cc	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/mysys_ssl/my_default.cc	2015-09-23 13:32:57.712495541 +0200
+@@ -1404,12 +1404,12 @@ static const char **init_default_directo
+ 
+ #else
+ 
+-  errors += add_directory(alloc, "/etc/", dirs);
+-  errors += add_directory(alloc, "/etc/mysql/", dirs);
+-
+ #if defined(DEFAULT_SYSCONFDIR)
+   if (DEFAULT_SYSCONFDIR[0])
++  {
+     errors += add_directory(alloc, DEFAULT_SYSCONFDIR, dirs);
++    errors += add_directory(alloc, DEFAULT_SYSCONFDIR "/mysql", dirs);
++  }
+ #endif /* DEFAULT_SYSCONFDIR */
+ 
+ #endif
+diff -up --recursive mysql-5.7.8.orig/scripts/CMakeLists.txt mysql-5.7.8/scripts/CMakeLists.txt
+--- mysql-5.7.8.orig/scripts/CMakeLists.txt	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/scripts/CMakeLists.txt	2015-09-23 13:43:47.463665346 +0200
+@@ -295,7 +295,7 @@ ELSE()
+ ENDIF()
+ 
+ SET(prefix "${CMAKE_INSTALL_PREFIX}")
+-SET(sysconfdir ${prefix})
++SET(sysconfdir ${SYSCONFDIR})
+ SET(bindir ${prefix}/${INSTALL_BINDIR})
+ SET(libexecdir ${prefix}/${INSTALL_SBINDIR})
+ SET(scriptdir ${prefix}/${INSTALL_BINDIR})
+diff -up --recursive mysql-5.7.8.orig/scripts/mysqld_multi.sh mysql-5.7.8/scripts/mysqld_multi.sh
+--- mysql-5.7.8.orig/scripts/mysqld_multi.sh	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/scripts/mysqld_multi.sh	2015-09-23 13:32:57.712495541 +0200
+@@ -573,9 +573,7 @@ sub list_defaults_files
+ 
+   my %seen;  # Don't list the same file more than once
+   return grep { defined $_ and not $seen{$_}++ and -f $_ and -r $_ }
+-              ('/etc/my.cnf',
+-               '/etc/mysql/my.cnf',
+-               '@sysconfdir@/my.cnf',
++              ('@sysconfdir@/my.cnf',
+                ($ENV{MYSQL_HOME} ? "$ENV{MYSQL_HOME}/my.cnf" : undef),
+                $opt{'extra-file'},
+                ($ENV{HOME} ? "$ENV{HOME}/.my.cnf" : undef));
