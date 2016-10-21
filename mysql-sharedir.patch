@@ -1,0 +1,52 @@
+diff -up --recursive mysql-5.7.8.orig/mysql-test/lib/My/ConfigFactory.pm mysql-5.7.8/mysql-test/lib/My/ConfigFactory.pm
+--- mysql-5.7.8.orig/mysql-test/lib/My/ConfigFactory.pm	2015-07-20 14:25:09.000000000 +0200
++++ mysql-5.7.8/mysql-test/lib/My/ConfigFactory.pm	2015-09-23 13:51:18.655091136 +0200
+@@ -36,7 +36,7 @@ my @pre_rules=
+ );
+ 
+ 
+-my @share_locations= ("share/mysql", "sql/share", "share");
++my @share_locations= ("@INSTALL_MYSQLSHAREDIR@", "sql/share", "share");
+ 
+ 
+ sub get_basedir {
+diff -up --recursive mysql-5.7.8.orig/mysql-test/mysql-test-run.pl mysql-5.7.8/mysql-test/mysql-test-run.pl
+--- mysql-5.7.8.orig/mysql-test/mysql-test-run.pl	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/mysql-test/mysql-test-run.pl	2015-09-23 13:52:50.023961144 +0200
+@@ -1282,11 +1282,11 @@ sub command_line_setup {
+   }
+ 
+   # Look for language files and charsetsdir, use same share
+-  $path_language=   mtr_path_exists("$bindir/share/mysql",
++  $path_language=   mtr_path_exists("$bindir/@INSTALL_MYSQLSHAREDIR@",
+                                     "$bindir/sql/share",
+                                     "$bindir/share");
+   my $path_share= $path_language;
+-  $path_charsetsdir =   mtr_path_exists("$basedir/share/mysql/charsets",
++  $path_charsetsdir =   mtr_path_exists("$basedir/@INSTALL_MYSQLSHAREDIR@/charsets",
+                                     "$basedir/sql/share/charsets",
+                                     "$basedir/share/charsets");
+ 
+@@ -3729,7 +3729,7 @@ sub mysql_install_db {
+   }
+ 
+   my $path_sql= my_find_file($install_basedir,
+-			     ["mysql", "sql/share", "share/mysql",
++			     ["mysql", "sql/share", "@INSTALL_MYSQLSHAREDIR@",
+ 			      "share", "scripts"],
+ 			      "mysql_system_tables.sql",
+ 			     NOT_REQUIRED);
+diff -up --recursive mysql-5.7.8.orig/mysql-test/CMakeLists.txt mysql-5.7.8/mysql-test/CMakeLists.txt
+--- mysql-5.7.8.orig/mysql-test/CMakeLists.txt	2015-07-20 14:25:08.000000000 +0200
++++ mysql-5.7.8/mysql-test/CMakeLists.txt	2015-09-23 13:53:57.694863067 +0200
+@@ -33,6 +33,10 @@ ENDIF()
+ 
+ 
+ 
++# Expand some paths in the perl scripts correctly
++CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/lib/My/ConfigFactory.pm ${CMAKE_CURRENT_SOURCE_DIR}/lib/My/ConfigFactory.pm @ONLY)
++CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/mysql-test-run.pl ${CMAKE_CURRENT_SOURCE_DIR}/mysql-test-run.pl @ONLY)
++
+ IF(NOT ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
+   # Enable running mtr from build directory
+   CONFIGURE_FILE(
