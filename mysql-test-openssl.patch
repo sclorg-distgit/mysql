@@ -1,0 +1,23 @@
+diff -rup mysql-5.5.50.orig/mysql-test/r/openssl_1.result mysql-5.5.50/mysql-test/r/openssl_1.result
+--- mysql-5.5.50.orig/mysql-test/r/openssl_1.result	2016-05-16 11:46:36.000000000 +0200
++++ mysql-5.5.50/mysql-test/r/openssl_1.result	2016-06-22 18:16:04.612962491 +0200
+@@ -196,8 +196,6 @@ Ssl_cipher	DHE-RSA-AES256-SHA
+ Variable_name	Value
+ Ssl_cipher	EDH-RSA-DES-CBC3-SHA
+ Variable_name	Value
+-Ssl_cipher	EDH-RSA-DES-CBC-SHA
+-Variable_name	Value
+ Ssl_cipher	RC4-SHA
+ select 'is still running; no cipher request crashed the server' as result from dual;
+ result
+diff -rup mysql-5.5.50.orig/mysql-test/t/openssl_1.test mysql-5.5.50/mysql-test/t/openssl_1.test
+--- mysql-5.5.50.orig/mysql-test/t/openssl_1.test	2016-06-22 18:13:05.983911214 +0200
++++ mysql-5.5.50/mysql-test/t/openssl_1.test	2016-06-22 18:15:29.452952398 +0200
+@@ -214,7 +214,6 @@ DROP TABLE t1;
+ # Common ciphers to openssl and yassl
+ --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=DHE-RSA-AES256-SHA
+ --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=EDH-RSA-DES-CBC3-SHA
+---exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=EDH-RSA-DES-CBC-SHA
+ --exec $MYSQL --host=localhost -e "SHOW STATUS LIKE 'Ssl_cipher';" --ssl-cipher=RC4-SHA
+ --disable_query_log
+ --disable_result_log
