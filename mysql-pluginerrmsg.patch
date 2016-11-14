@@ -38,7 +38,7 @@ diff -up mysql-5.5.34/sql/share/errmsg-utf8.txt.p28 mysql-5.5.34/sql/share/errms
 diff -up mysql-5.5.34/sql/sql_plugin.cc.p28 mysql-5.5.34/sql/sql_plugin.cc
 --- mysql-5.5.34/sql/sql_plugin.cc.p28	2013-10-10 12:09:03.837687101 +0200
 +++ mysql-5.5.34/sql/sql_plugin.cc	2013-10-10 12:09:03.937687128 +0200
-@@ -1909,9 +1909,7 @@ bool mysql_uninstall_plugin(THD *thd, co
+@@ -1929,9 +1929,7 @@ bool mysql_uninstall_plugin(THD *thd, co
    }
    if (!plugin->plugin_dl)
    {

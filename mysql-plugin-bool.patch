@@ -7,7 +7,7 @@ http://bugs.mysql.com/bug.php?id=59905
 diff -Naur mysql-5.5.8.orig/sql/sql_plugin.cc mysql-5.5.8/sql/sql_plugin.cc
 --- mysql-5.5.8.orig/sql/sql_plugin.cc	2010-12-03 12:58:26.000000000 -0500
 +++ mysql-5.5.8/sql/sql_plugin.cc	2011-02-01 20:34:10.218305349 -0500
-@@ -2024,7 +2024,7 @@
+@@ -2160,7 +2160,7 @@
        goto err;
      result= (int) tmp;
    }

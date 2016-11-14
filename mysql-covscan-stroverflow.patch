@@ -9,7 +9,7 @@ mysql-5.5.31/plugin/semisync/semisync_master.cc:555:parameter_as_source – Note
 diff -up mysql-5.5.31/plugin/semisync/semisync_master.cc.covscan-stroverflow mysql-5.5.31/plugin/semisync/semisync_master.cc
 --- mysql-5.5.31/plugin/semisync/semisync_master.cc.covscan-stroverflow	2013-06-17 09:04:47.214621154 +0200
 +++ mysql-5.5.31/plugin/semisync/semisync_master.cc	2013-06-17 09:08:32.189617218 +0200
-@@ -552,7 +552,8 @@ int ReplSemiSyncMaster::reportReplyBinlo
+@@ -555,7 +555,8 @@ int ReplSemiSyncMaster::reportReplyBinlo
  
    if (need_copy_send_pos)
    {
@@ -19,7 +19,7 @@ diff -up mysql-5.5.31/plugin/semisync/semisync_master.cc.covscan-stroverflow mys
      reply_file_pos_ = log_file_pos;
      reply_file_name_inited_ = true;
  
-@@ -658,7 +659,8 @@ int ReplSemiSyncMaster::commitTrx(const
+@@ -661,7 +662,8 @@ int ReplSemiSyncMaster::commitTrx(const
          if (cmp <= 0)
  	{
            /* This thd has a lower position, let's update the minimum info. */
@@ -29,7 +29,7 @@ diff -up mysql-5.5.31/plugin/semisync/semisync_master.cc.covscan-stroverflow mys
            wait_file_pos_ = trx_wait_binlog_pos;
  
            rpl_semi_sync_master_wait_pos_backtraverse++;
-@@ -669,7 +671,8 @@ int ReplSemiSyncMaster::commitTrx(const
+@@ -672,7 +674,8 @@ int ReplSemiSyncMaster::commitTrx(const
        }
        else
        {

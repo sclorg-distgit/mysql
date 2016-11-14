@@ -16,7 +16,7 @@ this patch.
 diff -Naur mysql-5.5.8.orig/include/m_string.h mysql-5.5.8/include/m_string.h
 --- mysql-5.5.8.orig/include/m_string.h	2010-12-03 12:58:24.000000000 -0500
 +++ mysql-5.5.8/include/m_string.h	2010-12-20 21:39:13.905186372 -0500
-@@ -74,15 +74,6 @@
+@@ -77,15 +77,6 @@
  extern void *(*my_str_malloc)(size_t);
  extern void (*my_str_free)(void *);
  

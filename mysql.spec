@@ -1,7 +1,7 @@
 %{?scl:%scl_package mysql}
 
 Name: %{?scl_prefix}mysql
-Version: 5.5.45
+Version: 5.5.52
 Release: 1%{?dist}
 
 Summary: MySQL client programs and shared libraries
@@ -58,7 +58,6 @@ Patch18: mysql-cipherspec.patch
 Patch19: mysql-file-contents.patch
 Patch20: mysql-string-overflow.patch
 Patch23: mysql-innodbwarn.patch
-Patch25: mysql-man-pages.patch
 Patch26: mysql-covscan-stroverflow.patch
 Patch27: mysql-covscan-signexpr.patch
 Patch28: mysql-pluginerrmsg.patch
@@ -195,7 +194,6 @@ the MySQL sources.
 %patch19 -p1
 %patch20 -p1
 %patch23 -p1
-%patch25 -p1
 %patch26 -p1
 %patch27 -p1
 %patch28 -p1
@@ -330,6 +328,7 @@ make %{?_smp_mflags} VERBOSE=1
     cd mysql-test
     perl ./mysql-test-run.pl --force --retry=0 --ssl \
 	--skip-test-list=rh-skipped-tests.list \
+	--skip-rpl \
 	--mysqld=--binlog-format=mixed \
 	--suite-timeout=720 --testcase-timeout=30
     # cmake build scripts will install the var cruft if left alone :-(
@@ -677,6 +676,15 @@ rm -f ${RPM_BUILD_ROOT}%{_datadir}/mysql/solaris/postinstall-solaris
 %{_mandir}/man1/mysql_client_test.1*
 
 %changelog
+* Sun Sep 18 2016 Honza Horak <hhorak@redhat.com> - 5.5.52-1
+- Rebase to 5.5.52
+  Also fixes: CVE-2016-6662
+  Resolves: #1384960
+
+* Tue Jun  7 2016 Jakub Dorňák <jdornak@redhat.com> - 5.5.50-1
+- Rebase to 5.5.50
+  Resolves: #1342440
+
 * Wed Jul 29 2015 Jakub Dorňák <jdornak@redhat.com> - 5.5.45-1
 - Rebase to 5.5.45
   Related: #1247023

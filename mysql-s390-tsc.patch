@@ -5,7 +5,7 @@ Filed upstream at http://bugs.mysql.com/bug.php?id=59953
 diff -Naur mysql-5.5.8.orig/include/my_rdtsc.h mysql-5.5.8/include/my_rdtsc.h
 --- mysql-5.5.8.orig/include/my_rdtsc.h	2010-12-03 12:58:24.000000000 -0500
 +++ mysql-5.5.8/include/my_rdtsc.h	2011-02-04 11:16:45.431459913 -0500
-@@ -124,6 +124,7 @@
+@@ -125,6 +125,7 @@
  #define MY_TIMER_ROUTINE_MACH_ABSOLUTE_TIME      25
  #define MY_TIMER_ROUTINE_GETSYSTEMTIMEASFILETIME 26
  #define MY_TIMER_ROUTINE_ASM_SUNPRO_X86_64       27

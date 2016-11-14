@@ -13,7 +13,7 @@ See RH bug #598656.  Filed upstream at http://bugs.mysql.com/bug.php?id=54158
 diff -Naur mysql-5.5.28.orig/extra/yassl/src/ssl.cpp mysql-5.5.28/extra/yassl/src/ssl.cpp
 --- mysql-5.5.28.orig/extra/yassl/src/ssl.cpp	2012-08-29 04:50:46.000000000 -0400
 +++ mysql-5.5.28/extra/yassl/src/ssl.cpp	2012-09-29 12:45:19.682287214 -0400
-@@ -1627,10 +1627,10 @@
+@@ -1654,10 +1654,10 @@
      }
  
  
@@ -30,7 +30,7 @@ diff -Naur mysql-5.5.28.orig/extra/yassl/src/ssl.cpp mysql-5.5.28/extra/yassl/sr
 diff -Naur mysql-5.5.28.orig/vio/viosslfactories.c mysql-5.5.28/vio/viosslfactories.c
 --- mysql-5.5.28.orig/vio/viosslfactories.c	2012-08-29 04:50:46.000000000 -0400
 +++ mysql-5.5.28/vio/viosslfactories.c	2012-09-29 12:46:35.124975585 -0400
-@@ -106,7 +106,7 @@
+@@ -136,7 +136,7 @@
      key_file= cert_file;
  
    if (cert_file &&

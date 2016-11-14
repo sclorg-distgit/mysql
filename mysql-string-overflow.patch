@@ -10,7 +10,7 @@ Error: BUFFER_SIZE_WARNING:
 diff -Naur mysql-5.5.23.orig/sql/sql_prepare.cc mysql-5.5.23/sql/sql_prepare.cc
 --- mysql-5.5.23.orig/sql/sql_prepare.cc	2012-03-29 15:07:12.000000000 -0400
 +++ mysql-5.5.23/sql/sql_prepare.cc	2012-04-27 22:19:09.196076848 -0400
-@@ -2871,7 +2871,7 @@
+@@ -2881,7 +2881,7 @@
    {
      stmt->state= Query_arena::STMT_ERROR;
      stmt->last_errno= thd->stmt_da->sql_errno();
@@ -28,7 +28,7 @@ Error: STRING_OVERFLOW:
 diff -Naur mysql-5.5.23.orig/sql/sql_trigger.cc mysql-5.5.23/sql/sql_trigger.cc
 --- mysql-5.5.23.orig/sql/sql_trigger.cc	2012-03-29 15:07:12.000000000 -0400
 +++ mysql-5.5.23/sql/sql_trigger.cc	2012-04-27 22:19:09.198076947 -0400
-@@ -2260,7 +2260,7 @@
+@@ -2267,7 +2267,7 @@
  void Table_triggers_list::set_parse_error_message(char *error_message)
  {
    m_has_unparseable_trigger= true;
@@ -46,7 +46,7 @@ Error: STRING_OVERFLOW:
 diff -Naur mysql-5.5.23.orig/storage/innobase/handler/ha_innodb.cc mysql-5.5.23/storage/innobase/handler/ha_innodb.cc
 --- mysql-5.5.23.orig/storage/innobase/handler/ha_innodb.cc	2012-03-29 15:07:11.000000000 -0400
 +++ mysql-5.5.23/storage/innobase/handler/ha_innodb.cc	2012-04-27 22:19:09.201077088 -0400
-@@ -7023,7 +7023,7 @@
+@@ -7074,7 +7074,7 @@
  
  	ut_a(strlen(name) < sizeof(name2));
  
