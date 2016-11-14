@@ -107,7 +107,7 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.6.30
+Version:          5.6.32
 Release:          1%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
@@ -156,7 +156,6 @@ Patch13:          %{pkgnamepatch}-log-fifo.patch
 # Patches specific for this mysql package
 Patch51:          %{pkgnamepatch}-chain-certs.patch
 Patch52:          %{pkgnamepatch}-sharedir.patch
-Patch53:          %{pkgnamepatch}-5.6.16-libmysql-version.patch
 Patch55:          %{pkgnamepatch}-5.6.16-mysql-install.patch
 Patch56:          %{pkgnamepatch}-pluginerrmsg.patch
 Patch57:          %{pkgnamepatch}-5.6.19-gcc49-aarch64-opt.patch
@@ -448,7 +447,6 @@ the MySQL sources.
 %patch13 -p1
 %patch51 -p1
 %patch52 -p1
-%patch53 -p1
 %patch55 -p1
 %patch56 -p1
 %patch57 -p1
@@ -1058,9 +1056,14 @@ fi
 %endif
 
 %changelog
+* Wed Jul 20 2016 Jakub Dorňák <jdornak@redhat.com> - 5.6.32-1
+- Update to MySQL 5.6.32, which contains various security fixes
+  (http://dev.mysql.com/doc/relnotes/mysql/5.6/en/news-5-6-32.html)
+- Resolves: #1359623
+
 * Tue Apr 26 2016 Jakub Dorňák <jdornak@redhat.com> - 5.6.30-1
 - Update to MySQL 5.6.30
-  Resolves: #1329671
+  Resolves: #1329672
 
 * Wed Jul 29 2015 Jakub Dorňák <jdornak@redhat.com> - 5.6.26-1
 - Update to MySQL 5.6.26
