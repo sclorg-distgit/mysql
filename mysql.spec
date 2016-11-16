@@ -113,8 +113,8 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.7.15
-Release:          2%{?with_debug:.debug}%{?dist}
+Version:          5.7.16
+Release:          1%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
 URL:              http://www.mysql.com
@@ -1088,6 +1088,11 @@ fi
 %endif
 
 %changelog
+* Mon Oct 17 2016 Jakub Dorňák <jdornak@redhat.com> - 5.7.16-1
+- Udate to MySQL 5.7.16, for various fixes described at
+  https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-16.html
+  Resolves: #1376457
+
 * Sat Sep 17 2016 Honza Horak <hhorak@redhat.com> - 5.7.15-2
 - We need actually runtime-dep for perl(JSON) in tests
   Related: #1376457
