@@ -2,6 +2,16 @@
 
 # This script creates the mysql data directory during first service start.
 # In subsequent starts, it does nothing much.
+#
+# This script is meant to be run as non-root user either during initscript
+# or systemd service execution, before starting the mysqld daemon.
+# Running it as root may have some security risks, because it touches files
+# that can be symlinks pointing to unexpected locations.
+#
+# On the other hand, when using non-standard locations for datadir and logfile,
+# this script might not be able to create the files and the daemon won't start
+# properly. A solution for that is to created the locations for datadir and
+# logfile with correct ownership before starting the daemon.
 
 source "`dirname ${BASH_SOURCE[0]}`/mysql-scripts-common"
 

@@ -17,6 +17,9 @@
 #	[Service]
 #	LimitNOFILE=10000
 
+# Or if you require to execute pre and post scripts in the unit file as root, set
+#       PermissionsStartOnly=true
+
 # Note: /usr/lib/... is recommended in the .include line though /lib/...
 # still works.
 # Don't forget to reload systemd daemon after you change unit configuration:
@@ -32,9 +35,6 @@ Type=forking
 User=mysql
 Group=mysql
 PIDFile=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
-
-# Execute pre and post scripts as root
-PermissionsStartOnly=true
 
 ExecStartPre=@libexecdir@/mysql-check-socket
 ExecStartPre=@libexecdir@/mysql-prepare-db-dir %n

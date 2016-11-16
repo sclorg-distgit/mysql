@@ -71,8 +71,8 @@ start(){
 	action $"Starting $prog: " /bin/true
 	ret=0
     else
-        @libexecdir@/mysql-prepare-db-dir $MYUSER $MYGROUP || return 4
-        @libexecdir@/mysql-check-socket || return 1
+        su - $MYUSER -s /bin/bash -c "@libexecdir@/mysql-check-socket" || return 1
+        su - $MYUSER -s /bin/bash -c "@libexecdir@/mysql-prepare-db-dir $MYUSER $MYGROUP" || return 4
 
 	# Pass all the options determined above, to ensure consistent behavior.
 	# In many cases mysqld_safe would arrive at the same conclusions anyway
@@ -81,13 +81,13 @@ start(){
 	# and some users might prefer to configure logging to syslog.)
 	# Note: set --basedir to prevent probes that might trigger SELinux
 	# alarms, per bug #547485
-	$exec   --datadir="$datadir" --socket="$socketfile" \
-		--pid-file="$pidfile" \
-		--basedir=@prefix@ --user=$MYUSER >/dev/null 2>&1 &
+	su - $MYUSER -s /bin/bash -c "$exec   --datadir='$datadir' --socket='$socketfile' \
+		--pid-file='$pidfile' \
+		--basedir=@prefix@ --user=$MYUSER" >/dev/null 2>&1 &
 	safe_pid=$!
 
 	# Wait until the daemon is up
-        @libexecdir@/mysql-wait-ready "$safe_pid"
+        su - $MYUSER -s /bin/bash -c "@libexecdir@/mysql-wait-ready '$safe_pid'"
         ret=$?
 
 	if [ $ret -eq 0 ]; then
