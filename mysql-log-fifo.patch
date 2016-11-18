@@ -13,9 +13,9 @@ Date:   Fri Apr 24 21:41:00 2015 +0200
 
 RHBZ: #1219496
 
-diff -up mysql-5.6.24/mysql-test/r/log_errchk.result.logfifo mysql-5.6.24/mysql-test/r/log_errchk.result
---- mysql-5.6.24/mysql-test/r/log_errchk.result.logfifo	2015-03-25 17:34:52.000000000 +0100
-+++ mysql-5.6.24/mysql-test/r/log_errchk.result	2015-05-07 16:06:04.280715628 +0200
+diff -rup mysql-5.6.33.orig/mysql-test/r/log_errchk.result mysql-5.6.33/mysql-test/r/log_errchk.result
+--- mysql-5.6.33.orig/mysql-test/r/log_errchk.result	2016-08-26 13:22:35.000000000 +0200
++++ mysql-5.6.33/mysql-test/r/log_errchk.result	2016-10-06 16:13:15.102478779 +0200
 @@ -1,5 +1,4 @@
 -call mtr.add_suppression("Could not open");
 -# Case 1: Setting fife file to general_log_file and slow_query_log_file
@@ -30,9 +30,9 @@ diff -up mysql-5.6.24/mysql-test/r/log_errchk.result.logfifo mysql-5.6.24/mysql-
 +call mtr.add_suppression("Could not open .* for logging \\(error 6\\)");
 +call mtr.add_suppression("File '.*' not found \\(Errcode: 6\\)");
  Setting fifo file as general log file and slow query log failed.
-diff -up mysql-5.6.24/mysql-test/t/log_errchk.test.logfifo mysql-5.6.24/mysql-test/t/log_errchk.test
---- mysql-5.6.24/mysql-test/t/log_errchk.test.logfifo	2015-03-25 17:34:52.000000000 +0100
-+++ mysql-5.6.24/mysql-test/t/log_errchk.test	2015-05-07 16:05:16.904547519 +0200
+diff -rup mysql-5.6.33.orig/mysql-test/t/log_errchk.test mysql-5.6.33/mysql-test/t/log_errchk.test
+--- mysql-5.6.33.orig/mysql-test/t/log_errchk.test	2016-08-26 13:22:35.000000000 +0200
++++ mysql-5.6.33/mysql-test/t/log_errchk.test	2016-10-06 16:16:23.130667809 +0200
 @@ -7,8 +7,8 @@
  # Bug#14757009 : WHEN THE GENERAL_LOG IS A SOCKET AND THE READER GOES AWAY,
  #                MYSQL QUITS WORKING.
@@ -73,10 +73,10 @@ diff -up mysql-5.6.24/mysql-test/t/log_errchk.test.logfifo mysql-5.6.24/mysql-te
    open(FILE, "$file") or die("Unable to open $file: $!\n");
    my $count = 0;
    while (<FILE>) {
-diff -up mysql-5.6.24/sql/log.cc.logfifo mysql-5.6.24/sql/log.cc
---- mysql-5.6.24/sql/log.cc.logfifo	2015-03-25 17:34:53.000000000 +0100
-+++ mysql-5.6.24/sql/log.cc	2015-05-07 16:03:06.967086459 +0200
-@@ -1526,6 +1526,7 @@ bool MYSQL_LOG::open(
+diff -rup mysql-5.6.33.orig/sql/log.cc mysql-5.6.33/sql/log.cc
+--- mysql-5.6.33.orig/sql/log.cc	2016-08-26 13:22:35.000000000 +0200
++++ mysql-5.6.33/sql/log.cc	2016-10-06 16:44:57.683152679 +0200
+@@ -1598,6 +1598,7 @@ bool MYSQL_LOG::open(
    MY_STAT f_stat;
    File file= -1;
    my_off_t pos= 0;
@@ -84,7 +84,7 @@ diff -up mysql-5.6.24/sql/log.cc.logfifo mysql-5.6.24/sql/log.cc
    int open_flags= O_CREAT | O_BINARY;
    DBUG_ENTER("MYSQL_LOG::open");
    DBUG_PRINT("enter", ("log_type: %d", (int) log_type_arg));
-@@ -1543,15 +1544,17 @@ bool MYSQL_LOG::open(
+@@ -1615,15 +1616,17 @@ bool MYSQL_LOG::open(
        DBUG_EVALUATE_IF("fault_injection_init_name", log_type == LOG_BIN, 0))
      goto err;
  
@@ -105,9 +105,9 @@ diff -up mysql-5.6.24/sql/log.cc.logfifo mysql-5.6.24/sql/log.cc
    db[0]= 0;
  
  #ifdef HAVE_PSI_INTERFACE
-@@ -1564,7 +1567,9 @@ bool MYSQL_LOG::open(
-                              MYF(MY_WME | ME_WAITTANG))) < 0)
+@@ -1648,7 +1651,9 @@ bool MYSQL_LOG::open(
      goto err;
+ #endif // _WIN32
  
 -  if ((pos= mysql_file_tell(file, MYF(MY_WME))) == MY_FILEPOS_ERROR)
 +  if (is_fifo)
@@ -116,7 +116,7 @@ diff -up mysql-5.6.24/sql/log.cc.logfifo mysql-5.6.24/sql/log.cc
    {
      if (my_errno == ESPIPE)
        pos= 0;
-@@ -1681,7 +1686,7 @@ void MYSQL_LOG::close(uint exiting)
+@@ -1756,7 +1761,7 @@ void MYSQL_LOG::close(uint exiting)
    {
      end_io_cache(&log_file);
  

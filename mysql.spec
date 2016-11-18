@@ -10,6 +10,9 @@
 # --nocheck is not possible (e.g. in koji build)
 %{!?runselftest:%global runselftest 1}
 
+# Set this to 1 to see which tests fail
+%global check_testsuite 0
+
 # set to 1 to enable
 %global with_shared_lib_major_hack 0
 
@@ -107,8 +110,8 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.6.32
-Release:          1%{?with_debug:.debug}%{?dist}
+Version:          5.6.34
+Release:          2%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
 URL:              http://www.mysql.com
@@ -182,6 +185,7 @@ BuildRequires:    perl(File::Temp)
 BuildRequires:    perl(Data::Dumper)
 BuildRequires:    perl(Getopt::Long)
 BuildRequires:    perl(IPC::Open3)
+BuildRequires:    perl(JSON)
 BuildRequires:    perl(Socket)
 BuildRequires:    perl(Sys::Hostname)
 BuildRequires:    perl(Test::More)
@@ -413,6 +417,7 @@ Requires:         perl(File::Temp)
 Requires:         perl(Data::Dumper)
 Requires:         perl(Getopt::Long)
 Requires:         perl(IPC::Open3)
+Requires:         perl(JSON)
 Requires:         perl(Socket)
 Requires:         perl(Sys::Hostname)
 Requires:         perl(Test::More)
@@ -541,6 +546,7 @@ cmake .. \
          -DINSTALL_MANDIR=share/man \
          -DINSTALL_MYSQLSHAREDIR=share/%{pkg_name} \
          -DINSTALL_MYSQLTESTDIR=share/mysql-test \
+         -DINSTALL_SECURE_FILE_PRIVDIR="%{_localstatedir}/lib/mysql-files" \
          -DINSTALL_PLUGINDIR="%{_lib}/mysql/plugin" \
          -DINSTALL_SBINDIR=libexec \
          -DINSTALL_SCRIPTDIR=bin \
@@ -551,6 +557,7 @@ cmake .. \
          -DENABLED_LOCAL_INFILE=ON \
          -DENABLE_DTRACE=ON \
          -DWITH_INNODB_MEMCACHED=ON \
+         -DWITH_SYMVER16=ON \
          -DWITH_EMBEDDED_SERVER=ON \
          -DWITH_EMBEDDED_SHARED_LIBRARY=ON \
          -DWITH_EDITLINE=bundled \
@@ -597,6 +604,7 @@ touch %{buildroot}%{logfile}
 
 mkdir -p %{buildroot}%{pidfiledir}
 install -p -m 0755 -d %{buildroot}%{dbdatadir}
+install -p -m 0750 -d %{buildroot}%{_localstatedir}/lib/mysql-files
 
 # create directory for socket
 %{?scl:install -p -m 0755 -d %{buildroot}/var/lib/mysql}
@@ -757,10 +765,14 @@ cp ../../mysql-test/%{skiplist} .
 export MTR_BUILD_THREAD=%{__isa_bits}
 ./mtr \
   --mem --parallel=auto --force --retry=0 \
-  --skip-test-list=%{skiplist} \
-  --mysqld=--binlog-format=mixed \
+  --mysqld=--binlog-format=mixed --skip-rpl \
   --suite-timeout=720 --testcase-timeout=30 \
-  --clean-vardir
+  --clean-vardir \
+%if %{check_testsuite}
+  --max-test-fail=0 || :
+%else
+  --skip-test-list=%{skiplist}
+%endif
   rm -rf var/* $(readlink var)
 popd
 popd
@@ -874,7 +886,6 @@ fi
 %files libs
 %{_libdir}/mysql/libmysqlclient*.so.*
 %{!?scl:%config(noreplace) %{_sysconfdir}/ld.so.conf.d/*}
-
 %endif
 
 %if %{with config}
@@ -949,6 +960,7 @@ fi
 %{_bindir}/resolveip
 
 %config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
+
 %{_libexecdir}/mysqld
 %if %{with init_systemd} && 0%{?scl:1}
 %{_libexecdir}/mysqld_safe-scl-helper
@@ -1011,6 +1023,7 @@ fi
 %{?scl:%attr(0755,mysql,mysql) %dir /var/lib/mysql}
 %attr(0755,mysql,mysql) %dir %{pidfiledir}
 %attr(0755,mysql,mysql) %dir %{_localstatedir}/lib/mysql
+%attr(0750,mysql,mysql) %dir %{_localstatedir}/lib/mysql-files
 %attr(0750,mysql,mysql) %dir %{logfiledir}
 %attr(0640,mysql,mysql) %config %ghost %verify(not md5 size mtime) %{logfile}
 %config(noreplace) %{logrotateddir}/%{daemon_name}
@@ -1056,6 +1069,20 @@ fi
 %endif
 
 %changelog
+* Thu Nov 03 2016 Honza Horak <hhorak@redhat.com> - 5.6.34-2
+- Use correct dir for mysql-files
+  Related: #1384962
+
+* Tue Oct 25 2016 Honza Horak <hhorak@redhat.com> - 5.6.34-1
+- Update to MySQL 5.6.34, which contains various security fixes
+  (https://dev.mysql.com/doc/relnotes/mysql/5.6/en/news-5-6-34.html)
+  Related: #1384962
+
+* Thu Oct  6 2016 Jakub Dorňák <jdornak@redhat.com> - 5.6.33-1
+- Update to MySQL 5.6.33, which contains various security fixes
+  (https://dev.mysql.com/doc/relnotes/mysql/5.6/en/news-5-6-33.html)
+  Resolves: #1384962
+
 * Wed Jul 20 2016 Jakub Dorňák <jdornak@redhat.com> - 5.6.32-1
 - Update to MySQL 5.6.32, which contains various security fixes
   (http://dev.mysql.com/doc/relnotes/mysql/5.6/en/news-5-6-32.html)

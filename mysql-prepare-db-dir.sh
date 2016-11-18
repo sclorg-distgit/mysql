@@ -36,7 +36,12 @@ else
 fi
 
 # Set up the errlogfile with appropriate permissions
-touch "$errlogfile"
+if [ ! -e "$errlogfile" -a ! -L "$errlogfile" ]; then
+    touch "$errlogfile"
+    chown "$myuser:$mygroup" "$errlogfile"
+    chmod 0640 "$errlogfile"
+fi
+su - $myuser -s /bin/bash -c "touch '$errlogfile'"
 ret=$?
 # Provide some advice if the log file cannot be touched
 if [ $ret -ne 0 ] ; then
@@ -51,39 +56,29 @@ if [ $ret -ne 0 ] ; then
     echo "The daemon will be run under $myuser:$mygroup"
     exit 1
 fi
-chown "$myuser:$mygroup" "$errlogfile"
-chmod 0640 "$errlogfile"
 [ -x /sbin/restorecon ] && /sbin/restorecon "$errlogfile"
 
-# Make the data directory
-if [ ! -d "$datadir/mysql" ] ; then
-    # First, make sure $datadir is there with correct permissions
-    # (note: if it's not, and we're not root, this'll fail ...)
-    if [ ! -e "$datadir" -a ! -h "$datadir" ]
-    then
-        mkdir -p "$datadir" || exit 1
-    fi
+# Make sure $datadir is there with correct permissions
+if [ ! -e "$datadir" -a ! -L "$datadir" ]; then
+    mkdir -p "$datadir" || exit 1
     chown "$myuser:$mygroup" "$datadir"
     chmod 0755 "$datadir"
-    [ -x /sbin/restorecon ] && /sbin/restorecon "$datadir"
+fi
+[ -x /sbin/restorecon ] && /sbin/restorecon "$datadir"
 
+if [ ! -d "$datadir/mysql" ] ; then
     # Now create the database
     echo "Initializing @NICE_PROJECT_NAME@ database"
-    @bindir@/mysql_install_db --rpm --datadir="$datadir" --user="$myuser"
+    su - $myuser -s /bin/bash -c "@bindir@/mysql_install_db --rpm --datadir='$datadir' --user='$myuser'"
     ret=$?
     if [ $ret -ne 0 ] ; then
         echo "Initialization of @NICE_PROJECT_NAME@ database failed." >&2
         echo "Perhaps @sysconfdir@/my.cnf is misconfigured." >&2
-        # Clean up any partially-created database files
-        if [ ! -e "$datadir/mysql/user.frm" ] ; then
-            rm -rf "$datadir"/*
-        fi
+        echo "Note, that you may need to clean up any partially-created database files in $datadir" >&2
         exit $ret
     fi
     # upgrade does not need to be run on a fresh datadir
-    echo "@VERSION@" >"$datadir/mysql_upgrade_info"
-    # In case we're running as root, make sure files are owned properly
-    chown -R "$myuser:$mygroup" "$datadir"
+    su - $myuser -s /bin/bash -c "echo '@VERSION@' > '$datadir/mysql_upgrade_info'"
 fi
 
 exit 0

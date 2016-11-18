@@ -152,3 +152,48 @@ index 2cb4c0d..feaa0e7 100644
  
  # Check ssl turned on
  SHOW STATUS LIKE 'Ssl_cipher';
+--- mysql-5.6.33/mysql-test/t/ssl_ca.test~	2016-08-26 13:22:35.000000000 +0200
++++ mysql-5.6.33/mysql-test/t/ssl_ca.test	2016-09-19 11:57:00.921940616 +0200
+@@ -7,10 +7,10 @@
+ 
+ --echo # try to connect with wrong '--ssl-ca' path : should fail
+ --error 1
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/wrong-crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test -e "SHOW STATUS LIKE 'Ssl_cipher'" 2>&1
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/wrong-crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'" 2>&1
+ 
+ --echo # try to connect with correct '--ssl-ca' path : should connect
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'"
+ 
+ --echo #
+ --echo # Bug#21920678: SSL-CA DOES NOT ACCEPT ~USER TILDE HOME DIRECTORY
+@@ -21,12 +21,12 @@
+ 
+ --echo # try to connect with '--ssl-ca' option using tilde home directoy
+ --echo # path substitution : should connect
+---exec $MYSQL --ssl-ca=$mysql_test_dir_path/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$mysql_test_dir_path/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'"
+ 
+ --echo # try to connect with '--ssl-key' option using tilde home directoy
+ --echo # path substitution : should connect
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$mysql_test_dir_path/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$mysql_test_dir_path/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'"
+ 
+ --echo # try to connect with '--ssl-cert' option using tilde home directoy
+ --echo # path substitution : should connect
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$mysql_test_dir_path/std_data/crl-client-cert.pem test -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$mysql_test_dir_path/std_data/crl-client-cert.pem --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'"
+--- mysql-5.6.33/mysql-test/t/ssl_crl.test~	2016-08-26 13:22:35.000000000 +0200
++++ mysql-5.6.33/mysql-test/t/ssl_crl.test	2016-09-19 11:53:23.177566131 +0200
+@@ -32,9 +32,9 @@
+ --echo # try to connect with '--ssl-crl' option using tilde home directoy
+ --echo # path substitution : should connect
+ --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test --ssl-crl=$mysql_test_dir_path/std_data/crl-client-revoked.crl -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem test --ssl-crl=$mysql_test_dir_path/std_data/crl-client-revoked.crl --ssl-cipher=DHE-RSA-AES256-SHA -e "SHOW STATUS LIKE 'Ssl_cipher'"
+ 
+ --echo # try to connect with '--ssl-crlpath' option using tilde home directoy
+ --echo # path substitution : should connect
+ --replace_result $MYSQL_TEST_DIR MYSQL_TEST_DIR
+---exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-crlpath=$mysql_test_dir_path/std_data/crldir test -e "SHOW STATUS LIKE 'Ssl_cipher'"
++--exec $MYSQL --ssl-ca=$MYSQL_TEST_DIR/std_data/crl-ca-cert.pem --ssl-key=$MYSQL_TEST_DIR/std_data/crl-client-key.pem --ssl-cert=$MYSQL_TEST_DIR/std_data/crl-client-cert.pem --ssl-crlpath=$mysql_test_dir_path/std_data/crldir --ssl-cipher=DHE-RSA-AES256-SHA test -e "SHOW STATUS LIKE 'Ssl_cipher'"
