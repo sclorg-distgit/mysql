@@ -1,6 +1,6 @@
-diff -up mysql-5.7.15/scripts/mysqld_safe.sh.p90 mysql-5.7.15/scripts/mysqld_safe.sh
---- mysql-5.7.15/scripts/mysqld_safe.sh.p90	2016-08-25 13:52:06.000000000 +0200
-+++ mysql-5.7.15/scripts/mysqld_safe.sh	2016-10-20 18:52:23.950371425 +0200
+diff -up mysql-5.7.18/scripts/mysqld_safe.sh.p90 mysql-5.7.18/scripts/mysqld_safe.sh
+--- mysql-5.7.18/scripts/mysqld_safe.sh.p90	2017-03-18 08:45:14.000000000 +0100
++++ mysql-5.7.18/scripts/mysqld_safe.sh	2017-06-26 07:56:15.902825809 +0200
 @@ -11,6 +11,12 @@
  # mysql.server works by first doing a cd to the base directory and from there
  # executing mysqld_safe
@@ -14,16 +14,16 @@ diff -up mysql-5.7.15/scripts/mysqld_safe.sh.p90 mysql-5.7.15/scripts/mysqld_saf
  # Initialize script globals
  KILL_MYSQLD=1;
  MYSQLD=
-diff -up mysql-5.7.15/scripts/mysql.init.in.p90 mysql-5.7.15/scripts/mysql.init.in
---- mysql-5.7.15/scripts/mysql.init.in.p90	2016-10-20 18:52:23.948371419 +0200
-+++ mysql-5.7.15/scripts/mysql.init.in	2016-10-20 18:54:52.790821279 +0200
+diff -up mysql-5.7.18/scripts/mysql.init.in.p90 mysql-5.7.18/scripts/mysql.init.in
+--- mysql-5.7.18/scripts/mysql.init.in.p90	2017-06-26 07:56:15.899825806 +0200
++++ mysql-5.7.18/scripts/mysql.init.in	2017-06-26 07:58:43.059962044 +0200
 @@ -71,8 +71,8 @@ start(){
  	action $"Starting $prog: " /bin/true
  	ret=0
      else
--        su - $MYUSER -s /bin/bash -c "@libexecdir@/mysql-check-socket" || return 1
+-        @libexecdir@/mysql-check-socket || return 1
 -        su - $MYUSER -s /bin/bash -c "@libexecdir@/mysql-prepare-db-dir $MYUSER $MYGROUP" || return 4
-+        su - $MYUSER -s /bin/bash -c "scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-socket" || return 1
++        scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-socket || return 1
 +        su - $MYUSER -s /bin/bash -c "scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-prepare-db-dir $MYUSER $MYGROUP" || return 4
  
  	# Pass all the options determined above, to ensure consistent behavior.
@@ -63,9 +63,9 @@ diff -up mysql-5.7.15/scripts/mysql.init.in.p90 mysql-5.7.15/scripts/mysql.init.
  
  # See how we were called.
  case "$1" in
-diff -up mysql-5.7.15/scripts/mysql.service.in.p90 mysql-5.7.15/scripts/mysql.service.in
---- mysql-5.7.15/scripts/mysql.service.in.p90	2016-10-20 18:52:23.942371401 +0200
-+++ mysql-5.7.15/scripts/mysql.service.in	2016-10-20 18:52:23.951371428 +0200
+diff -up mysql-5.7.18/scripts/mysql.service.in.p90 mysql-5.7.18/scripts/mysql.service.in
+--- mysql-5.7.18/scripts/mysql.service.in.p90	2017-06-26 07:56:15.884825792 +0200
++++ mysql-5.7.18/scripts/mysql.service.in	2017-06-26 07:56:15.902825809 +0200
 @@ -36,13 +36,19 @@ User=mysql
  Group=mysql
  PIDFile=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
@@ -85,15 +85,43 @@ diff -up mysql-5.7.15/scripts/mysql.service.in.p90 mysql-5.7.15/scripts/mysql.se
 -ExecStart=@libexecdir@/mysqld --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
 -ExecStartPost=@libexecdir@/mysql-check-upgrade
 -ExecStopPost=@libexecdir@/mysql-wait-stop
-+ExecStart=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysqld --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
++ExecStart=@libexecdir@/mysqld-scl-helper enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysqld --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
 +ExecStartPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-upgrade
 +ExecStopPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-wait-stop
  
  # Give a reasonable amount of time for the server to start up/shut down
  TimeoutSec=300
-diff -up mysql-5.7.15/support-files/mysql-log-rotate.sh.p90 mysql-5.7.15/support-files/mysql-log-rotate.sh
---- mysql-5.7.15/support-files/mysql-log-rotate.sh.p90	2016-10-20 18:52:23.307369482 +0200
-+++ mysql-5.7.15/support-files/mysql-log-rotate.sh	2016-10-20 18:52:23.951371428 +0200
+diff -up mysql-5.7.18/scripts/mysql.service.in.p90 mysql-5.7.18/scripts/mysql.service.in
+--- mysql-5.7.18/scripts/mysql@.service.in.p90	2017-06-26 07:56:15.884825792 +0200
++++ mysql-5.7.18/scripts/mysql@.service.in	2017-06-26 07:56:15.902825809 +0200
+@@ -35,13 +35,19 @@ User=mysql
+ User=mysql
+ Group=mysql
+ 
+-ExecStartPre=@libexecdir@/mysql-check-socket --defaults-group-suffix=.%I
+-ExecStartPre=@libexecdir@/mysql-prepare-db-dir --defaults-group-suffix=.%I %n
++# Load collections set to enabled for this service
++EnvironmentFile=@SCL_SCRIPTS@/service-environment
++
++# We want to start server only inside "scl enable" invocation
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- /usr/bin/scl_enabled @SCL_NAME@
++
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-socket --defaults-group-suffix=.%I
++ExecStartPre=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-prepare-db-dir --defaults-group-suffix=.%I %n
+ # Note: we set --basedir to prevent probes that might trigger SELinux alarms,
+ # per bug #547485
+-ExecStart=@libexecdir@/mysqld --defaults-group-suffix=.%I --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
+-ExecStartPost=@libexecdir@/mysql-check-upgrade --defaults-group-suffix=.%I
+-ExecStopPost=@libexecdir@/mysql-wait-stop --defaults-group-suffix=.%I
++ExecStart=@libexecdir@/mysqld-scl-helper enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysqld --defaults-group-suffix=.%I --daemonize --basedir=@prefix@ --pid-file=@PID_FILE_DIR@/@DAEMON_NO_PREFIX@.pid
++ExecStartPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-check-upgrade --defaults-group-suffix=.%I
++ExecStopPost=/usr/bin/scl enable $@SCL_NAME_UPPER@_SCLS_ENABLED -- @libexecdir@/mysql-wait-stop --defaults-group-suffix=.%I
+ 
+ # Give a reasonable amount of time for the server to start up/shut down
+ TimeoutSec=300
+diff -up mysql-5.7.18/support-files/mysql-log-rotate.sh.p90 mysql-5.7.18/support-files/mysql-log-rotate.sh
+--- mysql-5.7.18/support-files/mysql-log-rotate.sh.p90	2017-06-26 07:56:14.759824751 +0200
++++ mysql-5.7.18/support-files/mysql-log-rotate.sh	2017-06-26 07:56:15.902825809 +0200
 @@ -30,9 +30,9 @@
  #    postrotate
  #	# just if mysqld is really running
