@@ -1,0 +1,12 @@
+diff -Naurp mysql-5.7.18_original/scripts/CMakeLists.txt mysql-5.7.18_patched/scripts/CMakeLists.txt
+--- mysql-5.7.18_original/scripts/CMakeLists.txt	2017-05-15 15:42:52.644709626 +0200
++++ mysql-5.7.18_patched/scripts/CMakeLists.txt	2017-05-15 15:44:39.967523244 +0200
+@@ -481,7 +481,7 @@ ELSE()
+   ENDIF()
+ 
+   # Systemd files
+-  IF(WITH_SYSTEMD)
++  IF(0) # We don't ship Oracle's unit file and its binaries in RH packages
+     CONFIGURE_FILE(systemd/mysqld_pre_systemd.in
+       ${CMAKE_CURRENT_BINARY_DIR}/mysqld_pre_systemd ESCAPE_QUOTES @ONLY)
+ 

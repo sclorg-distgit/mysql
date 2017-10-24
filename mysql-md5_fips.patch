@@ -1,0 +1,50 @@
+Added to address RHBZ#1449689
+
+Original patch notes from <hhorak@redhat.com> follows:
+
+...
+
+In FIPS mode there is no md5 by default, unless declared it is specifically
+allowed. MD5 is used for non-crypto related things in MySQL (digests related
+to performance schema and table list), so it is ok to use MD5 there.
+
+However, there is also MD5() SQL function, that should still keep working,
+but users should know they should avoid using it in FIPS mode.
+
+RHBZ: #1351791
+
+Upstream bug reports:
+http://bugs.mysql.com/bug.php?id=83696
+https://jira.mariadb.org/browse/MDEV-7788
+
+
+diff -Naurp mysql-5.7.18_original/mysys_ssl/my_md5.cc mysql-5.7.18_patched/mysys_ssl/my_md5.cc
+--- mysql-5.7.18_original/mysys_ssl/my_md5.cc	2017-03-18 08:45:14.000000000 +0100
++++ mysql-5.7.18_patched/mysys_ssl/my_md5.cc	2017-05-12 12:19:38.584814619 +0200
+@@ -38,13 +38,22 @@ static void my_md5_hash(char *digest, co
+ 
+ #elif defined(HAVE_OPENSSL)
+ #include <openssl/md5.h>
++#include <openssl/evp.h>
+ 
+ static void my_md5_hash(unsigned char* digest, unsigned const char *buf, int len)
+ {
+-  MD5_CTX ctx;
+-  MD5_Init (&ctx);
+-  MD5_Update (&ctx, buf, len);
+-  MD5_Final (digest, &ctx);
++ EVP_MD_CTX *ctx;
++ ctx = EVP_MD_CTX_create();
++
++ #ifdef EVP_MD_CTX_FLAG_NON_FIPS_ALLOW
++  /* we will be using MD5, which is not allowed under FIPS */
++  EVP_MD_CTX_set_flags(ctx, EVP_MD_CTX_FLAG_NON_FIPS_ALLOW);
++ #endif
++
++ EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
++ EVP_DigestUpdate(ctx, buf, len);
++ EVP_DigestFinal_ex(ctx, digest, NULL);
++ EVP_MD_CTX_destroy(ctx);
+ }
+ 
+ #endif /* HAVE_YASSL */

@@ -28,7 +28,7 @@
 # Turn that off to ensure such files don't get included in RPMs (cf bz#884755).
 %global _default_patch_flags --no-backup-if-mismatch
 
-%global           skiplist platform-specific-tests.list
+%global skiplist platform-specific-tests.list
 
 # For some use cases we do not need some parts of the package
 %bcond_without devel
@@ -70,7 +70,7 @@
 %{?scl:%global se_daemon_source %{_unitdir}/mysqld}
 %global daemondir %{_unitdir}
 %else
-%{?scl:%global se_daemon_source %{?scl:%_root_sysconfdir}%{!?scl:%_sysconfdir}/c.d/init.d/mysqld}
+%{?scl:%global se_daemon_source %{?scl:%_root_sysconfdir}%{!?scl:%_sysconfdir}/rc.d/init.d/mysqld}
 %global daemondir %{?scl:%_root_sysconfdir}%{!?scl:%_sysconfdir}/rc.d/init.d
 %endif
 %{?scl:%global se_log_source %{?_root_localstatedir}/log/mysql}
@@ -113,8 +113,8 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          5.7.16
-Release:          1%{?with_debug:.debug}%{?dist}
+Version:          5.7.19
+Release:          6%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 Group:            Applications/Databases
 URL:              http://www.mysql.com
@@ -136,6 +136,7 @@ Source14:         mysql-check-socket.sh
 Source15:         mysql-scripts-common.sh
 Source16:         mysql-check-upgrade.sh
 Source17:         mysql-wait-stop.sh
+Source18:         mysql@.service.in
 Source19:         mysql.init.in
 # To track rpmlint warnings
 Source30:         mysql-5.6.10-rpmlintrc
@@ -152,12 +153,17 @@ Patch4:           %{pkgnamepatch}-file-contents.patch
 Patch5:           %{pkgnamepatch}-scripts.patch
 Patch6:           %{pkgnamepatch}-paths.patch
 Patch11:          %{pkgnamepatch}-noclientlib.patch
+Patch14:          %{pkgnamepatch}-md5_fips.patch
 
 # Patches specific for this mysql package
 Patch51:          %{pkgnamepatch}-chain-certs.patch
 Patch52:          %{pkgnamepatch}-sharedir.patch
 Patch57:          %{pkgnamepatch}-files-path.patch
 Patch70:          %{pkgnamepatch}-5.7.9-major.patch
+Patch71:          %{pkgnamepatch}-remove_oracle_systemd_unit.patch
+
+# Patches specific for scl
+Patch90:          %{pkgnamepatch}-scl-env-check.patch
 
 # Patches taken from boost 1.59
 Patch115: boost-1.58.0-pool.patch
@@ -167,9 +173,6 @@ Patch145: boost-1.54.0-locale-unused_typedef.patch
 Patch170: boost-1.59.0-log.patch
 Patch180: boost-1.59-python-make_setter.patch
 Patch181: boost-1.59-test-fenv.patch
-
-# Patches specific for scl
-Patch90:          %{pkgnamepatch}-scl-env-check.patch
 
 BuildRequires:    cmake
 BuildRequires:    libaio-devel
@@ -211,6 +214,7 @@ Requires:         grep
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 %{?scl:Requires:%scl_runtime}
 
+Provides:         bundled(boost) = 1.59
 %if %{with mysql_names}
 Provides:         mysql = %{sameevr}
 Provides:         mysql%{?_isa} = %{sameevr}
@@ -252,7 +256,7 @@ Provides:         mysql-libs%{?_isa} = %{sameevr}
 %endif
 
 %description      libs
-The mysql-libs package provides the essential shared libraries for any 
+The mysql-libs package provides the essential shared libraries for any
 MySQL client program or interface. You will need to install this package
 to use any other MySQL package or any clients that need to connect to a
 MySQL server.
@@ -435,12 +439,14 @@ the MySQL sources.
 %patch5 -p1
 %patch6 -p1
 %patch11 -p1
+%patch14 -p1
 %patch51 -p1
 %patch52 -p1
 %patch57 -p1
 %if %{with_shared_lib_major_hack}
 %patch70 -p1
 %endif
+%patch71 -p1
 
 # Patch Boost
 pushd boost/boost_1_59_0
@@ -463,9 +469,11 @@ add_test () {
 touch %{skiplist}
 
 # unstable on all archs
-add_test main.xa_prepared_binlog_off          : unstable test
-add_test binlog.binlog_xa_prepared_disconnect : unstable test
-add_test innodb.table_encrypt_kill            : unstable test
+add_test main.datadir_permission              : Unstable test from base testsuite
+add_test main.m_i_db                          : Unstable test from '--big-test' testsuite
+add_test main.grant_user_lock                 : Unstable test
+add_test innodb-system-table-view             : Unstable test
+add_test table_encrypt_kill                   : Unstable test
 
 # these tests fail in 5.7.15 on arm32
 %ifarch %arm
@@ -512,7 +520,7 @@ add_test parts.partition_int_innodb : parts issue
 popd
 
 cp %{SOURCE2} %{SOURCE3} %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} \
-   %{SOURCE14} %{SOURCE15} %{SOURCE16} %{SOURCE17} %{SOURCE19} %{SOURCE31} scripts
+   %{SOURCE14} %{SOURCE15} %{SOURCE16} %{SOURCE17} %{SOURCE18} %{SOURCE19} %{SOURCE31} scripts
 
 %if 0%{?scl:1}
 %patch90 -p1
@@ -530,7 +538,7 @@ cp %{SOURCE2} %{SOURCE3} %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} \
 %endif
 
 %{?scl:scl enable %{scl} - << \EOF}
-set -x
+set -ex
 
 # build out of source
 mkdir build && pushd build
@@ -600,7 +608,7 @@ popd
 
 %install
 %{?scl:scl enable %{scl} - << \EOF}
-set -x
+set -ex
 
 pushd build
 
@@ -639,14 +647,14 @@ install -D -p -m 0644 scripts/my.cnf %{buildroot}%{_sysconfdir}/my.cnf
 
 # daemon helper for fixing SELinux in systemd
 %if %{with init_systemd} && 0%{?scl:1}
-install -p -m 755 %{SOURCE40} %{buildroot}%{_libexecdir}/mysqld_safe-scl-helper
+install -p -m 755 %{SOURCE40} %{buildroot}%{_libexecdir}/mysqld-scl-helper
 %endif
 
 # install systemd unit files and scripts for handling server startup
 %if %{with init_systemd}
 install -D -p -m 644 scripts/mysql.service %{buildroot}%{_unitdir}/%{daemon_name}.service
+install -D -p -m 644 scripts/mysql@.service %{buildroot}%{_unitdir}/%{daemon_name}@.service
 install -D -p -m 0644 scripts/mysql.tmpfiles.d %{buildroot}%{_tmpfilesdir}/%{daemon_name}.conf
-rm -rf %{buildroot}%{_tmpfilesdir}/mysql.conf
 %endif
 
 # install SysV init script
@@ -669,14 +677,14 @@ mv %{buildroot}%{_datadir}/mysql-test/lib/My/SafeProcess/my_safe_process %{build
 ln -s ../../../../../bin/my_safe_process %{buildroot}%{_datadir}/mysql-test/lib/My/SafeProcess/my_safe_process
 
 # not needed in rpm package
-rm -f %{buildroot}%{_bindir}/mysql_embedded
-rm -f %{buildroot}%{_libdir}/mysql/*.a
-rm -f %{buildroot}%{_datadir}/%{pkg_name}/magic
-rm -f %{buildroot}%{_datadir}/%{pkg_name}/mysql.server
-rm -f %{buildroot}%{_datadir}/%{pkg_name}/mysqld_multi.server
-rm -f %{buildroot}%{_mandir}/man1/comp_err.1*
-rm -f %{buildroot}%{_mandir}/man1/mysql-stress-test.pl.1*
-rm -f %{buildroot}%{_mandir}/man1/mysql-test-run.pl.1*
+rm %{buildroot}%{_bindir}/mysql_embedded
+rm %{buildroot}%{_libdir}/mysql/*.a
+rm %{buildroot}%{_datadir}/%{pkg_name}/magic
+rm %{buildroot}%{_datadir}/%{pkg_name}/mysql.server
+rm %{buildroot}%{_datadir}/%{pkg_name}/mysqld_multi.server
+rm %{buildroot}%{_mandir}/man1/comp_err.1*
+rm %{buildroot}%{_mandir}/man1/mysql-stress-test.pl.1*
+rm %{buildroot}%{_mandir}/man1/mysql-test-run.pl.1*
 
 # put logrotate script where it needs to be
 mkdir -p %{buildroot}%{logrotateddir}
@@ -709,30 +717,29 @@ cp -p %{buildroot}%{_mandir}/man1/mysql_client_test.1 %{buildroot}%{_mandir}/man
 
 %if %{without clibrary}
 unlink %{buildroot}%{_libdir}/mysql/libmysqlclient.so
-rm -rf %{buildroot}%{_libdir}/mysql/libmysqlclient*.so.*
-rm -rf %{buildroot}%{_sysconfdir}/ld.so.conf.d
+rm -r %{buildroot}%{_libdir}/mysql/libmysqlclient*.so.*
 %endif
 
 %if %{without embedded}
-rm -f %{buildroot}%{_libdir}/mysql/libmysqld.so*
-rm -f %{buildroot}%{_bindir}/{mysql_client_test_embedded,mysqltest_embedded}
-rm -f %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
+rm %{buildroot}%{_libdir}/mysql/libmysqld.so*
+rm %{buildroot}%{_bindir}/{mysql_client_test_embedded,mysqltest_embedded}
+rm %{buildroot}%{_mandir}/man1/{mysql_client_test_embedded,mysqltest_embedded}.1*
 %endif
 
 %if %{without devel}
-rm -f %{buildroot}%{_bindir}/mysql_config*
-rm -rf %{buildroot}%{_includedir}/mysql
-rm -f %{buildroot}%{_datadir}/aclocal/mysql.m4
-rm -f %{buildroot}%{_libdir}/pkgconfig/mysqlclient.pc
-rm -f %{buildroot}%{_libdir}/mysql/libmysqlclient*.so
-rm -f %{buildroot}%{_mandir}/man1/mysql_config.1*
+rm %{buildroot}%{_bindir}/mysql_config*
+rm -r %{buildroot}%{_includedir}/mysql
+rm %{buildroot}%{_datadir}/aclocal/mysql.m4
+rm %{buildroot}%{_libdir}/pkgconfig/mysqlclient.pc
+rm %{buildroot}%{_libdir}/mysql/libmysqlclient*.so
+rm %{buildroot}%{_mandir}/man1/mysql_config.1*
 %endif
 
 %if %{without client}
-rm -f %{buildroot}%{_bindir}/{mysql,mysql_config_editor,\
+rm %{buildroot}%{_bindir}/{mysql,mysql_config_editor,\
 mysql_plugin,mysqladmin,mysqlbinlog,\
 mysqlcheck,mysqldump,mysqlpump,mysqlimport,mysqlshow,mysqlslap,my_print_defaults}
-rm -f %{buildroot}%{_mandir}/man1/{mysql,mysql_config_editor,\
+rm %{buildroot}%{_mandir}/man1/{mysql,mysql_config_editor,\
 mysql_plugin,mysqladmin,mysqlbinlog,\
 mysqlcheck,mysqldump,mysqlpump,mysqlimport,mysqlshow,mysqlslap,my_print_defaults}.1*
 %endif
@@ -740,24 +747,24 @@ mysqlcheck,mysqldump,mysqlpump,mysqlimport,mysqlshow,mysqlslap,my_print_defaults
 %if %{with config}
 mkdir -p %{buildroot}%{_sysconfdir}/my.cnf.d
 %else
-rm -f %{buildroot}%{_sysconfdir}/my.cnf
+rm %{buildroot}%{_sysconfdir}/my.cnf
 %endif
 
 %if %{without common}
-rm -rf %{buildroot}%{_datadir}/%{pkg_name}/charsets
+rm -r %{buildroot}%{_datadir}/%{pkg_name}/charsets
 %endif
 
 %if %{without errmsg}
-rm -f %{buildroot}%{_datadir}/%{pkg_name}/errmsg-utf8.txt
-rm -rf %{buildroot}%{_datadir}/%{pkg_name}/{english,bulgarian,czech,danish,dutch,estonian,\
+rm %{buildroot}%{_datadir}/%{pkg_name}/errmsg-utf8.txt
+rm -r %{buildroot}%{_datadir}/%{pkg_name}/{english,bulgarian,czech,danish,dutch,estonian,\
 french,german,greek,hungarian,italian,japanese,korean,norwegian,norwegian-ny,\
 polish,portuguese,romanian,russian,serbian,slovak,spanish,swedish,ukrainian}
 %endif
 
 %if %{without test}
-rm -f %{buildroot}%{_bindir}/{mysql_client_test,mysqlxtest,my_safe_process}
-rm -rf %{buildroot}%{_datadir}/mysql-test
-rm -f %{buildroot}%{_mandir}/man1/mysql_client_test.1*
+rm %{buildroot}%{_bindir}/{mysql_client_test,mysqlxtest,my_safe_process}
+rm -r %{buildroot}%{_datadir}/mysql-test
+rm %{buildroot}%{_mandir}/man1/mysql_client_test.1*
 %endif
 
 %{?scl:EOF}
@@ -769,7 +776,7 @@ cat << EOF | tee -a %{buildroot}%{?_scl_scripts}/service-environment
 # environment (like environment variable values). As a consequence,
 # information of all enabled collections will be lost during service start up.
 # If user needs to run a service under any software collection enabled, this
-# collection has to be written into %{scl_upper}_SCLS_ENABLED variable 
+# collection has to be written into %{scl_upper}_SCLS_ENABLED variable
 # in %{?_scl_scripts}/service-environment.
 %{scl_upper}_SCLS_ENABLED="%{scl}"
 EOF
@@ -777,7 +784,7 @@ EOF
 
 %check
 %{?scl:scl enable %{scl} - << \EOF}
-set -x
+set -ex
 
 %if %{with test}
 %if %runselftest
@@ -791,13 +798,13 @@ export MTR_BUILD_THREAD=%{__isa_bits}
   --mem --parallel=auto --force --retry=0 \
   --mysqld=--binlog-format=mixed --skip-rpl \
   --suite-timeout=720 --testcase-timeout=30 \
-  --clean-vardir \
+  --clean-vardir --big-test \
 %if %{check_testsuite}
   --max-test-fail=0 || :
 %else
   --skip-test-list=%{skiplist}
 %endif
-  rm -rf var/* $(readlink var)
+  rm -r var $(readlink var)
 popd
 popd
 %endif
@@ -820,13 +827,17 @@ popd
 
 %post server
 %if 0%{?scl:1}
+# since there was a typo before (bz#1452707), we need to clean previously
+# set rule, otherwise semange will not work
+semanage fcontext -d "%{daemondir}/%{daemon_name}%{?with_init_systemd:.service}" >/dev/null 2>&1 || :
 semanage fcontext -a -e "%{se_daemon_source}" "%{daemondir}/%{daemon_name}%{?with_init_systemd:.service}" >/dev/null 2>&1 || :
 semanage fcontext -a -t mysqld_var_run_t "%{pidfiledir}" >/dev/null 2>&1 || :
 # work-around for rhbz#1203991
 semanage fcontext -a -t mysqld_etc_t '/etc/my\.cnf\.d/.*' >/dev/null 2>&1 || :
 %if %{with init_systemd}
-# work-around for rhbz#1172683
-semanage fcontext -a -t mysqld_safe_exec_t %{_root_libexecdir}/mysqld_safe-scl-helper >/dev/null 2>&1 || :
+# work-around for rhbz#1172683, but intentionally using mysqld_exec_t context
+# and mysqld-scl-helper file, otherwise we hit bz#1464145 on RHEL-7
+semanage fcontext -a -t mysqld_exec_t %{_root_libexecdir}/mysqld-scl-helper >/dev/null 2>&1 || :
 %endif
 selinuxenabled && load_policy || :
 restorecon -R "%{?_scl_root}/" >/dev/null 2>&1 || :
@@ -965,9 +976,7 @@ fi
 %{_bindir}/mysql_tzinfo_to_sql
 %{_bindir}/mysql_upgrade
 %{_bindir}/mysqlbinlog
-%if %{with init_systemd}
-%{_bindir}/mysqld_pre_systemd
-%else
+%if %{without init_systemd}
 %{_bindir}/mysqld_multi
 %{_bindir}/mysqld_safe
 %endif
@@ -985,7 +994,7 @@ fi
 
 %{_libexecdir}/mysqld
 %if %{with init_systemd} && 0%{?scl:1}
-%{_libexecdir}/mysqld_safe-scl-helper
+%{_libexecdir}/mysqld-scl-helper
 %endif
 
 %{_libdir}/mysql/INFO_SRC
@@ -1029,7 +1038,6 @@ fi
 %{_datadir}/%{pkg_name}/mysql_system_tables.sql
 %{_datadir}/%{pkg_name}/mysql_system_tables_data.sql
 %{_datadir}/%{pkg_name}/mysql_test_data_timezone.sql
-%{_datadir}/%{pkg_name}/my-*.cnf
 %{_datadir}/%{pkg_name}/uninstall_rewriter.sql
 
 %{daemondir}/%{daemon_name}*
@@ -1088,6 +1096,77 @@ fi
 %endif
 
 %changelog
+* Mon Oct 09 2017 Honza Horak <hhorak@redhat.com> - 5.7.19-6
+- Clear previously set selinux equivalence rule, so the new one is used
+  Related: #1452707
+
+* Mon Aug 28 2017 Honza Horak <hhorak@redhat.com> - 5.7.19-5
+- Do not use PIDFile directive in mysql@.service
+  Related: #1400702
+
+* Mon Aug 28 2017 Honza Horak <hhorak@redhat.com> - 5.7.19-4
+- Support --defaults-group-suffix option in systemd unit file
+  Resolves: #1400702
+
+* Mon Aug 28 2017 Honza Horak <hhorak@redhat.com> - 5.7.19-3
+- Use correct file for mysql@.service
+  Resolves: #1400702
+
+* Thu Jul 20 2017 Honza Horak <hhorak@redhat.com> - 5.7.19-2
+- Rebase to latest upstream 5.7.19
+  Related: #1445528
+
+* Mon Jun 26 2017 Honza Horak <hhorak@redhat.com> - 5.7.18-2
+- Run mysqld with correct context
+  Resolves: #1466474
+- Work-around for #1172683 is not needed any more, SELinux context is
+  properly defined for mysqld_safe-scl-helper binary in selinux-policy
+  package already.
+  However, what we really need is context of mysqld,
+  not mysqld_safe, so using mysqld-scl-helper instead and defining own
+  context for this file.
+  Related: #1466474
+- Do not run mysql-check-socket script as mysql user, since then it
+  cannot see other processes' open files, as per see fuser(1) man page.
+  Since the script only reads data, running it as root on RHEL-6 does not
+  cause any security issues.
+  Resolves: #1466477
+
+* Tue May 23 2017 Michal Schorm <mschorm@redhat.com> - 5.7.18-2
+- Previous CVE fix was incomplete, fixed now
+- CVEs fixed by this commit, #1445521:
+  CVE-2017-3312
+- Resolves: #1445521
+
+* Mon May 15 2017 Michal Schorm <mschorm@redhat.com> - 5.7.18-1
+- Udate to MySQL 5.7.18, for various fixes described at
+  https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-18.html
+- CVEs fixed by this commit, #1445528:
+  CVE-2016-5483/CVE-2017-3600 CVE-2017-3308 CVE-2017-3309
+  CVE-2017-3331 CVE-2017-3450 CVE-2017-3453 CVE-2017-3454
+  CVE-2017-3455 CVE-2017-3456 CVE-2017-3457 CVE-2017-3458
+  CVE-2017-3459 CVE-2017-3460 CVE-2017-3461 CVE-2017-3462
+  CVE-2017-3463 CVE-2017-3464 CVE-2017-3465 CVE-2017-3467
+  CVE-2017-3468 CVE-2017-3599
+- CVEs fixed by this commit, #1445517:
+  CVE-2016-8327 CVE-2017-3238 CVE-2017-3244 CVE-2017-3251
+  CVE-2017-3256 CVE-2017-3257 CVE-2017-3258 CVE-2017-3273
+  CVE-2017-3313 CVE-2017-3317 CVE-2017-3318 CVE-2017-3319
+  CVE-2017-3320 CVE-2017-3291
+- CVEs fixed by this commit, #1445521:
+  CVE-2017-3312
+- 'force' option for 'rm' removed in specfile
+- Sample my-*.cnf are gone (removed by upstream)
+- Testsuite extended by '--big-test' option
+- Fixed SCL exit code processing ('set -e')
+- Following tests were disabled, for they started to fail or are unstable:
+  main.datadir_permission main.m_i_db main.grant_user_lock
+- Resolves: #1452514; MD5 in FIPS mode
+            #1452510; bundled() provides
+            #1452516; root privilege escalation
+            #1452511; rh-mysql57-mysqld@ wasn't made for scl
+            #1452707; typo in SELinux context
+
 * Mon Oct 17 2016 Jakub Dorňák <jdornak@redhat.com> - 5.7.16-1
 - Udate to MySQL 5.7.16, for various fixes described at
   https://dev.mysql.com/doc/relnotes/mysql/5.7/en/news-5-7-16.html

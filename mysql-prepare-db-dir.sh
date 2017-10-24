@@ -46,36 +46,51 @@ else
 fi
 
 # Set up the errlogfile with appropriate permissions
-touch "$errlogfile"
-ret=$?
-# Provide some advice if the log file cannot be touched
-if [ $ret -ne 0 ] ; then
-    errlogdir=$(dirname $errlogfile)
+if [ ! -e "$errlogfile" -a ! -h "$errlogfile" -a x$(dirname "$errlogfile") = x$(dirname @LOG_LOCATION@) ]; then
+    case $(basename "$errlogfile") in
+        mysql*.log|mariadb*.log) install /dev/null -m0640 -o$myuser -g$mygroup "$errlogfile" ;;
+        *) ;;
+    esac
+else
+    # Provide some advice if the log file cannot be created by this script
+    errlogdir=$(dirname "$errlogfile")
     if ! [ -d "$errlogdir" ] ; then
         echo "The directory $errlogdir does not exist."
-    elif [ -f "$errlogfile" ] ; then
-        echo "The log file $errlogfile cannot be touched, please, fix its permissions."
-    else
-        echo "The log file $errlogfile could not be created."
+        exit 1
+    elif [ -e "$errlogfile" -a ! -w "$errlogfile" ] ; then
+        echo "The log file $errlogfile cannot be written, please, fix its permissions."
+        echo "The daemon will be run under $myuser:$mygroup"
+        exit 1
     fi
-    echo "The daemon will be run under $myuser:$mygroup"
-    exit 1
 fi
-chown "$myuser:$mygroup" "$errlogfile"
-chmod 0640 "$errlogfile"
-[ -x /sbin/restorecon ] && /sbin/restorecon "$errlogfile"
 
-# Make the data directory
-if [ ! -d "$datadir/mysql" ] ; then
-    # First, make sure $datadir is there with correct permissions
-    # (note: if it's not, and we're not root, this'll fail ...)
-    if [ ! -e "$datadir" -a ! -h "$datadir" ]
-    then
-        mkdir -p "$datadir" || exit 1
-    fi
-    chown "$myuser:$mygroup" "$datadir"
-    chmod 0755 "$datadir"
-    [ -x /sbin/restorecon ] && /sbin/restorecon "$datadir"
+
+
+export LC_ALL=C
+
+# Returns content of the specified directory
+# If listing files fails, fake-file is returned so which means
+# we'll behave like there was some data initialized
+# Some files or directories are fine to be there, so those are
+# explicitly removed from the listing
+# @param <dir> datadir
+list_datadir ()
+{
+    ( ls -1A "$1" 2>/dev/null || echo "fake-file" ) | grep -v \
+    -e '^lost+found$' \
+    -e '\.err$' \
+    -e '^\.bash_history$'
+}
+
+# Checks whether datadir should be initialized
+# @param <dir> datadir
+should_initialize ()
+{
+    test -z "$(list_datadir "$1")"
+}
+
+# Make the data directory if doesn't exist or empty
+if should_initialize "$datadir" ; then
 
     # Now create the database
     echo "Initializing @NICE_PROJECT_NAME@ database"
@@ -92,8 +107,6 @@ if [ ! -d "$datadir/mysql" ] ; then
     fi
     # upgrade does not need to be run on a fresh datadir
     echo "@VERSION@" >"$datadir/mysql_upgrade_info"
-    # In case we're running as root, make sure files are owned properly
-    chown -R "$myuser:$mygroup" "$datadir"
 fi
 
 exit 0
