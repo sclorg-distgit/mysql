@@ -1,5 +1,5 @@
 diff --git a/mysql-test/CMakeLists.txt b/mysql-test/CMakeLists.txt
-index 7c1e82b..a92ba91 100644
+index 7c1e82b5..a92ba915 100644
 --- a/mysql-test/CMakeLists.txt
 +++ b/mysql-test/CMakeLists.txt
 @@ -56,6 +56,10 @@ INSTALL(
@@ -14,30 +14,28 @@ index 7c1e82b..a92ba91 100644
    # Enable running mtr from build directory
    CONFIGURE_FILE(
 diff --git a/mysql-test/mysql-test-run.pl b/mysql-test/mysql-test-run.pl
-index e9130dd..388c039 100755
+index 8c058527..7acd8534 100755
 --- a/mysql-test/mysql-test-run.pl
 +++ b/mysql-test/mysql-test-run.pl
-@@ -1535,11 +1535,13 @@ sub command_line_setup {
+@@ -1479,11 +1479,11 @@ sub command_line_setup {
    }
  
    # Look for language files and charsetsdir, use same share
--  $path_language= mtr_path_exists("$bindir/share/mysql",
-+  $path_language= mtr_path_exists("$bindir/@INSTALL_MYSQLSHAREDIR@",
-+                                  "$bindir/share/mysql",
-                                   "$bindir/share");
-   my $path_share= $path_language;
+-  $path_language = mtr_path_exists("$bindir/share/mysql", "$bindir/share");
++  $path_language = mtr_path_exists("$bindir/@INSTALL_MYSQLSHAREDIR@", "$bindir/share/mysql", "$bindir/share");
+   my $path_share = $path_language;
  
--  @share_locations= ("share/mysql",
-+  @share_locations= ("@INSTALL_MYSQLSHAREDIR@",
-+                     "share/mysql",
-                      "share/mysql-" . $mysql_base_version,
-                      "share");
+   @share_locations =
+-    ("share/mysql", "share/mysql-" . $mysql_base_version, "share");
++    ("@INSTALL_MYSQLSHAREDIR@", "share/mysql", "share/mysql-" . $mysql_base_version, "share");
  
-@@ -4140,6 +4142,7 @@ sub mysql_install_db {
+   $path_charsetsdir = my_find_dir($basedir, \@share_locations, "charsets");
  
-   my $path_sql= my_find_file($install_basedir,
- 			     ["mysql", "share/mysql",
-+			      "@INSTALL_MYSQLSHAREDIR@",
- 			      "share/mysql-" . $mysql_base_version,
- 			      "share", "scripts"],
- 			      "mysql_system_tables.sql",
+@@ -3727,6 +3727,7 @@ sub mysql_install_db {
+ 
+   my $path_sql = my_find_file($install_basedir,
+                               [ "mysql", "share/mysql",
++                                "@INSTALL_MYSQLSHAREDIR@",
+                                 "share/mysql-" . $mysql_base_version,
+                                 "share", "scripts"
+                               ],

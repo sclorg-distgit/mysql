@@ -3,7 +3,6 @@
 %{!?scl:%global pkg_name %{name}}
 
 # Name of the package without any prefixes
-%global pkg_name %{name}
 %global pkgnamepatch mysql
 
 # Regression tests may take a long time (many cores recommended), skip them by
@@ -51,10 +50,22 @@
 # For deep debugging we need to build binaries with extra debug info
 %bcond_with debug
 
+%if 0%{?fedora}
+%bcond_with bundled_icu
+%else
+%bcond_without bundled_icu
+%endif
+
 %if 0%{?fedora} >= 26 || 0%{?rhel} > 7
 %bcond_with bundled_protobuf
 %else
 %bcond_without bundled_protobuf
+%endif
+
+%if 0%{?fedora}
+%bcond_with bundled_re2
+%else
+%bcond_without bundled_re2
 %endif
 
 # Include files for SysV init or systemd
@@ -81,7 +92,13 @@
 
 # We define some system's well known locations here so we can use them easily
 # later when building to another location (like SCL)
+%if 0%{?scl:1}
+%global logrotateddir %{_root_sysconfdir}/logrotate.d
+%global selinux_packages_dir %{_root_datadir}/selinux/packages
+%else
 %global logrotateddir %{_sysconfdir}/logrotate.d
+%global selinux_packages_dir %{_datadir}/selinux/packages
+%endif
 %global logfiledir %{_localstatedir}/log/mysql
 %global logfile %{logfiledir}/%{daemon_no_prefix}.log
 
@@ -108,7 +125,7 @@
 %endif
 
 Name:             %{?scl_prefix}mysql
-Version:          8.0.11
+Version:          8.0.12
 Release:          6%{?with_debug:.debug}%{?dist}
 Summary:          MySQL client programs and shared libraries
 URL:              http://www.mysql.com
@@ -136,7 +153,9 @@ Source19:         mysql.init.in
 Source30:         mysql-5.6.10-rpmlintrc
 # Configuration for server
 Source31:         server.cnf.in
+Source32:         default-authentication-plugin.cnf
 Source40:         daemon-scl-helper.sh
+Source41:         mysql-sysnice.te
 
 # Comments for these patches are in the patch files
 # Patches common for more mysql-like packages
@@ -145,24 +164,32 @@ Patch2:           %{pkgnamepatch}-s390-tsc.patch
 Patch3:           %{pkgnamepatch}-file-contents.patch
 Patch4:           %{pkgnamepatch}-scripts.patch
 Patch5:           %{pkgnamepatch}-paths.patch
+Patch6:           %{pkgnamepatch}-icu.patch
 
 # Patches specific for this mysql package
 Patch51:          %{pkgnamepatch}-chain-certs.patch
 Patch52:          %{pkgnamepatch}-sharedir.patch
 Patch75:          %{pkgnamepatch}-arm32-timer.patch
+Patch76:          %{pkgnamepatch}-header-file-include.patch
 
 # Patches specific for scl
 Patch90:          %{pkgnamepatch}-scl-env-check.patch
+Patch91:          %{pkgnamepatch}-rpath.patch
 
 # Patches taken from boost 1.59
 Patch115: boost-1.58.0-pool.patch
 Patch125: boost-1.57.0-mpl-print.patch
+# Use same logfile path in logrotate and mysql configs
+Patch126: mysql-logrotate-log-path.patch
 
 BuildRequires:    cmake
 BuildRequires:    gcc-c++
 BuildRequires:    libaio-devel
 BuildRequires:    libedit-devel
 BuildRequires:    libevent-devel
+%if %{without bundled_icu}
+BuildRequires:    libicu-devel
+%endif
 BuildRequires:    %{?scl_prefix}lz4
 BuildRequires:    %{?scl_prefix}lz4-devel
 BuildRequires:    %{?scl_prefix}mecab-devel
@@ -180,6 +207,10 @@ BuildRequires:    libtirpc-devel
 %endif
 %if %{without bundled_protobuf}
 BuildRequires:    protobuf-lite-devel
+%endif
+BuildRequires:    rapidjson-devel
+%if %{without bundled_re2}
+BuildRequires:    re2-devel
 %endif
 BuildRequires:    zlib
 BuildRequires:    zlib-devel
@@ -210,14 +241,22 @@ BuildRequires:    perl(Time::HiRes)
 %global dts devtoolset-7
 BuildRequires:    %{dts}-gcc-c++
 %endif
+BuildRequires:    selinux-policy-devel
 
 Requires:         bash coreutils grep
 Requires:         %{name}-common%{?_isa} = %{sameevr}
 %{?scl:Requires:%scl_runtime}
 
-Provides:         bundled(boost) = 1.66
+Provides:         bundled(boost) = 1.67
 %if %{with bundled_protobuf}
 Provides:         bundled(protobuf) = 2.6.1
+%endif
+%if %{with bundled_re2}
+# it's not clear what version of re2 upstream took
+Provides:         bundled(re2)
+%endif
+%if %{with bundled_icu}
+Provides:         bundled(icu) = 59
 %endif
 
 %if %{with mysql_names}
@@ -325,7 +364,14 @@ Requires(pre):    /usr/sbin/useradd
 Requires:         systemd
 # Make sure it's there when scriptlets run, too
 %{?systemd_requires: %systemd_requires}
+# semanage
+%if 0%{?fedora} >= 26 || 0%{?rhel} > 7
+Requires(post):   policycoreutils-python-utils
+%else
+Requires(post):   policycoreutils-python
+%endif
 %{?scl:Requires:%scl_runtime}
+%{?scl:BuildRequires: scl-utils-build-helpers}
 %endif
 %if %{with mysql_names}
 Provides:         mysql-server = %{sameevr}
@@ -399,6 +445,12 @@ package contains the regression test suite distributed with
 the MySQL sources.
 %endif
 
+%if 0%{?scl:1}
+%scl_syspaths_package -d
+%scl_syspaths_package config -d
+%scl_syspaths_package server -d
+%endif
+
 
 %prep
 %setup -q -n mysql-%{version}
@@ -407,12 +459,15 @@ the MySQL sources.
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
 %patch51 -p1
 %patch52 -p1
 %patch75 -p1
+%patch76 -p1
+%patch126 -p1
 
 # Patch Boost
-pushd boost/boost_1_66_0
+pushd boost/boost_1_67_0
 %patch115 -p0
 %patch125 -p1
 popd
@@ -513,9 +568,14 @@ cp %{SOURCE2} %{SOURCE3} %{SOURCE10} %{SOURCE11} %{SOURCE12} %{SOURCE13} \
 
 %if 0%{?scl:1}
 %patch90 -p1
+%patch91 -p1
 %endif
 
+cp %{SOURCE41} mysql-sysnice.te
+
+
 %build
+make -f /usr/share/selinux/devel/Makefile mysql-sysnice.te mysql-sysnice.pp
 # fail quickly and obviously if user tries to build as root
 %if %runselftest
     if [ x"$(id -u)" = "x0" ]; then
@@ -557,6 +617,7 @@ cmake .. \
          -DINSTALL_INFODIR=share/info \
          -DINSTALL_LIBEXECDIR=libexec \
          -DINSTALL_LIBDIR="%{_lib}/mysql" \
+         -DRPATH_LIBDIR="%{_libdir}" \
          -DINSTALL_MANDIR=share/man \
          -DINSTALL_MYSQLSHAREDIR=share/%{pkg_name} \
          -DINSTALL_MYSQLTESTDIR=share/mysql-test \
@@ -580,22 +641,27 @@ cmake .. \
 %ifarch s390 s390x
          -DUSE_LD_GOLD=OFF \
 %endif
-         -DWITH_EDITLINE=system \
-         -DWITH_LIBEVENT=system \
-         -DWITH_LZ4=system \
-         -DWITH_MECAB=system \
-%if %{without bundled_protobuf}
-         -DWITH_PROTOBUF=system \
+         -DWITH_SYSTEM_LIBS=ON \
+%if %{with bundled_re2}
+         -DWITH_RE2=bundled \
 %endif
-         -DWITH_SSL=system \
-         -DWITH_ZLIB=system \
+%if %{with bundled_icu}
+         -DWITH_ICU=bundled \
+%endif
+%if %{with bundled_protobuf}
+         -DWITH_PROTOBUF=bundled \
+%endif
+         -DWITH_MECAB=system \
          -DWITH_BOOST=../boost \
+         -DREPRODUCIBLE_BUILD=OFF \
          -DCMAKE_C_FLAGS="%{optflags}%{?with_debug: -fno-strict-overflow -Wno-unused-result -Wno-unused-function -Wno-unused-but-set-variable}" \
          -DCMAKE_CXX_FLAGS="%{optflags}%{?with_debug: -fno-strict-overflow -Wno-unused-result -Wno-unused-function -Wno-unused-but-set-variable}" \
 %{?with_debug: -DWITH_DEBUG=1}\
 %{?with_debug: -DMYSQL_MAINTAINER_MODE=0}\
          -DTMPDIR=/var/tmp \
          %{?_hardened_build:-DWITH_MYSQLD_LDFLAGS="-pie -Wl,-z,relro,-z,now"}
+
+cmake .. -LAH
 
 make %{?_smp_mflags} VERBOSE=1
 
@@ -604,6 +670,7 @@ popd
 %{?scl:EOF}
 
 %install
+install -p -m 644 -D mysql-sysnice.pp %{buildroot}%{selinux_packages_dir}/%{name}/%{pkg_name}-sysnice.pp
 %{?scl:scl enable %{scl} %{?dts} - << \EOF}
 set -ex
 
@@ -663,6 +730,7 @@ install -p -m 755 scripts/mysql-check-socket %{buildroot}%{_libexecdir}/mysql-ch
 install -p -m 755 scripts/mysql-check-upgrade %{buildroot}%{_libexecdir}/mysql-check-upgrade
 install -p -m 644 scripts/mysql-scripts-common %{buildroot}%{_libexecdir}/mysql-scripts-common
 install -D -p -m 0644 scripts/server.cnf %{buildroot}%{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
+install -D -p -m 0644 %{SOURCE32} %{buildroot}%{_sysconfdir}/my.cnf.d/%{pkg_name}-default-authentication-plugin.cnf
 
 # mysql-test includes one executable that doesn't belong under /usr/share,
 # so move it and provide a symlink
@@ -772,6 +840,42 @@ cat << EOF | tee -a %{buildroot}%{?_scl_scripts}/service-environment
 # in %{?_scl_scripts}/service-environment.
 %{scl_upper}_SCLS_ENABLED="%{scl}"
 EOF
+
+# Creating syspath without prefix for mysql-config package
+%scl_syspaths_install_wrapper -n mysql-config -m link %{_sysconfdir}/my.cnf %{_root_sysconfdir}/%{scl_prefix}my.cnf
+%scl_syspaths_install_wrapper -n mysql-config -m link %{_sysconfdir}/my.cnf.d %{_root_sysconfdir}/%{scl_prefix}my.cnf.d
+
+# Creating syspath without prefix for mysql package
+mysql_binaries='mysql mysql_config_editor mysqladmin mysqlbinlog mysqlcheck mysqldump
+mysqlimport mysqlpump mysqlshow mysqlslap'
+
+%scl_syspaths_install_wrappers -n mysql -m script -p bin $mysql_binaries
+
+mans= ; for bin in $mysql_binaries; do mans+=" man1/$bin.1.gz" ; done
+%scl_syspaths_install_wrappers -n mysql -m link -p man $mans
+
+# Creating syspath without prefix for mysql-server package
+mysql_server_binaries='ibd2sdi innochecksum my_print_defaults myisam_ftdump
+myisamchk myisamlog myisampack mysql_secure_installation mysql_ssl_rsa_setup
+mysql_tzinfo_to_sql mysql_upgrade mysqldumpslow perror
+resolve_stack_dump resolveip'
+
+%scl_syspaths_install_wrappers -n mysql-server -m script -p bin $mysql_server_binaries
+
+mans= ; for bin in $mysql_server_binaries; do mans+=" man1/$bin.1.gz" ; done
+%scl_syspaths_install_wrappers -n mysql-server -m link -p man $mans
+
+%scl_syspaths_install_wrapper -n mysql-server -m link %{logfiledir} %{_root_localstatedir}/log/%{scl_prefix}mysql
+%scl_syspaths_install_wrapper -n mysql-server -m link %{dbdatadir} %{_root_localstatedir}/lib/%{scl_prefix}mysql
+
+%if %{with init_systemd}
+%scl_syspaths_install_wrapper -n mysql-server -m link %{_unitdir}/%{daemon_name}.service %{_unitdir}/%{daemon_no_prefix}.service
+%scl_syspaths_install_wrapper -n mysql-server -m link %{_unitdir}/%{daemon_name}@.service %{_unitdir}/%{daemon_no_prefix}@.service
+%endif
+
+%if %{with init_sysv}
+%scl_syspaths_install_wrapper -n mysql-server -m link %{daemondir}/%{daemon_name} %{daemondir}/%{daemon_no_prefix}
+%endif
 %endif #scl
 
 %check
@@ -815,6 +919,7 @@ popd
 %endif
 
 %post server
+semodule -i %{selinux_packages_dir}/%{name}/%{pkg_name}-sysnice.pp >/dev/null 2>&1 || :
 %if 0%{?scl:1}
 # since there was a typo before (bz#1452707), we need to clean previously
 # set rule, otherwise semange will not work
@@ -876,6 +981,9 @@ if [ $1 -ge 1 ]; then
     /sbin/service %{daemon_name} condrestart >/dev/null 2>&1 || :
 fi
 %endif
+if [ $1 -eq 0 ]; then
+    semodule -r %{pkg_name}-sysnice.pp >/dev/null 2>&1 || :
+fi
 
 %if %{with client}
 %files
@@ -967,7 +1075,8 @@ fi
 %{_bindir}/mysql_tzinfo_to_sql
 %{_bindir}/mysql_upgrade
 %{_sbindir}/mysqld
-%{_libexecdir}/mysqld
+# sys_nice capability required for rhbz#1628814
+%caps(cap_sys_nice=ep) %{_libexecdir}/mysqld
 %if %{with init_systemd}
 %{_bindir}/mysqld_pre_systemd
 %else
@@ -981,6 +1090,7 @@ fi
 %{_bindir}/resolveip
 
 %config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-server.cnf
+%config(noreplace) %{_sysconfdir}/my.cnf.d/%{pkg_name}-default-authentication-plugin.cnf
 
 %if %{with init_systemd} && 0%{?scl:1}
 %{_libexecdir}/mysqld-scl-helper
@@ -1029,6 +1139,7 @@ fi
 %{_datadir}/%{pkg_name}/mysql_sys_schema.sql
 %{_datadir}/%{pkg_name}/mysql_system_tables.sql
 %{_datadir}/%{pkg_name}/mysql_system_tables_data.sql
+%{_datadir}/%{pkg_name}/mysql_system_users.sql
 %{_datadir}/%{pkg_name}/mysql_test_data_timezone.sql
 %{_datadir}/%{pkg_name}/uninstall_rewriter.sql
 
@@ -1054,6 +1165,8 @@ fi
 
 %{?scl:%config(noreplace) %{?_scl_scripts}/service-environment}
 
+%{selinux_packages_dir}/%{name}/%{pkg_name}-sysnice.pp
+
 %if %{with devel}
 %files devel
 %{_bindir}/mysql_config*
@@ -1076,7 +1189,55 @@ fi
 %attr(-,mysql,mysql) %{_datadir}/mysql-test
 %endif
 
+%if 0%{?scl:1}
+%scl_syspaths_files -n mysql
+%scl_syspaths_files -n mysql-config
+%scl_syspaths_files -n mysql-server
+%endif
+
 %changelog
+* Wed Sep 26 2018 Michal Schorm <mschorm@redhat.com> - 8.0.12-6
+- Fix the default configuration of the server, so it uses same authentication
+  method as MySQL 5.7
+  Resolves: #1631396
+
+* Fri Sep 14 2018 Honza Horak <hhorak@redhat.com> - 8.0.12-5
+- Remove module on uninstall of the server and enable capability setting
+  Related: #1628814
+
+* Fri Sep 14 2018 Jakub Janco <jjanco@redhat.com> - 8.0.12-4
+- Allow sys_nice in selinux
+
+* Fri Sep 14 2018 Michal Schorm <mschorm@redhat.com> - 8.0.12-3
+- Add bundled ICU version
+- Add a patch for the 'mysql_com.h' header file
+- Use system mecab tool
+- Use RPATH for mysqld, so we can set capabilities for this binary
+  and also ship a small SELinux policy to allow sys_nice capability
+  Related: #1628814
+
+* Thu Sep 13 2018 Honza Horak <hhorak@redhat.com> - 8.0.12-2
+- Disable capabilities for mysqld because of SELinux issues
+
+* Thu Sep 13 2018 Michal Schorm <mschorm@redhat.com> - 8.0.12-1
+- Rebase to MySQL 8.0.12
+- Fix the SYS_NICE capabilities
+  Related: #1540946
+- Add requires for the semanage binary
+- CVEs fixed: CVE-2018-3054 CVE-2018-3056 CVE-2018-3060 CVE-2018-3062
+  CVE-2018-3064 CVE-2018-3065 CVE-2018-3077 CVE-2018-3081 CVE-2018-3067
+  CVE-2018-3073 CVE-2018-3074 CVE-2018-3075 CVE-2018-3078 CVE-2018-3079
+  CVE-2018-3080 CVE-2018-3082 CVE-2018-3084
+
+* Thu Sep 13 2018 Jakub Janco <jjanco@redhat.com> - 8.0.11-9
+- Use same logfile path in logrotate and mysql configs
+
+* Thu Sep 13 2018 Jakub Janco <jjanco@redhat.com> - 8.0.11-8
+- Prefix logrotate configuration in SCL
+
+* Wed Sep 12 2018 Honza Horak <hhorak@redhat.com> - 8.0.11-7
+- Add syspath subpackages
+
 * Wed Jul 18 2018 Honza Horak <hhorak@redhat.com> - 8.0.11-6
 - Use prefixes for dependencies
 

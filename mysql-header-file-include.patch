@@ -1,0 +1,34 @@
+include "..." looks into relative path first
+include <...> doesn't look into relative path at all
+
+The "udf_..." file is in the correct location relative to the "mysql_com.h" file.
+
+Related: #1623950
+
+--- mysql-8.0.11/include/mysql_com.h	2018-04-08 08:44:49.000000000 +0200
++++ mysql-8.0.11/include/mysql_com.h_patched	2018-09-13 13:32:50.018156166 +0200
+@@ -1008,7 +1008,7 @@ struct rand_struct {
+ };
+ 
+ /* Include the types here so existing UDFs can keep compiling */
+-#include <mysql/udf_registration_types.h>
++#include "mysql/udf_registration_types.h"
+ 
+ /**
+   @addtogroup group_cs_compresson_constants Constants when using compression
+
+
+
+
+We need to patch the Cmake ABI check file too
+--- mysql-8.0.11/include/mysql.h.pp	2018-04-08 08:44:49.000000000 +0200
++++ mysql-8.0.11/include/mysql.h.pp_patched	2018-09-14 13:19:21.763401087 +0200
+@@ -173,7 +173,7 @@ struct rand_struct {
+   unsigned long seed1, seed2, max_value;
+   double max_value_dbl;
+ };
+-#include <mysql/udf_registration_types.h>
++#include "mysql/udf_registration_types.h"
+ enum Item_result {
+   INVALID_RESULT = -1,
+   STRING_RESULT = 0,
